@@ -7,13 +7,13 @@ flowchart TB
     PR[protected listen token]
     PV[private full auth]
   end
-  subgraph control [Control /player/slug]
+  subgraph control [Control /control/slug]
     CP[private full auth]
     CG[protected guest exchange]
   end
 ```
 
-Playback and control access are **fully independent** per Struna.
+Playback and control access are **fully independent** per Struna. Plume’s remote desk is `/control/{slug}`; the listen / player UI is `/player/{slug}` — see [uri-routing](../interfaces/uri-routing.md).
 
 ## Playback (listening)
 

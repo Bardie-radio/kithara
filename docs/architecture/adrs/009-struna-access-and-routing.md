@@ -13,9 +13,12 @@ Streams need human-readable URLs, separate listen vs control permissions, and le
 | Path | Service |
 |------|---------|
 | `/` | Plume (auth required) |
+| `/control/{slug}` | Plume remote control desk |
+| `/player/{slug}` | Plume listen / player surface |
 | `/api/*` | Kithara REST |
 | `/stream/{slug}` | Kithara Stream Server |
-| `/player/{slug}` | Plume control page |
+
+`/player` used to mean the control UI; Plume MVP flips that — control is `/control/{slug}`, listen UI is `/player/{slug}`. No `/listen` path.
 
 **Slug:** user-chosen; unique among **alive** Strunas; freed on **DELETE** (or silent cleanup).
 

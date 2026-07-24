@@ -6,4 +6,4 @@
 - [v0.1-milestones.md](v0.1-milestones.md) — short delivery ladder
 - [implementation-plan.md](implementation-plan.md) — ordered work packages, modularity rules, finding → phase map
 - [security-audit.md](security-audit.md) — mesh + SURFACE-TOPIC findings; Phases 4–6 remediations closed (soft residuals → Phase 8)
-- [known-issues.md](known-issues.md) — non-security footguns (`NECK-*`); GitHub links
+- [known-issues.md](known-issues.md) — non-security footguns (`NECK-*`); Plume-local IDs live in Plume

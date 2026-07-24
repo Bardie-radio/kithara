@@ -18,7 +18,7 @@ A **client module** is a separate deployable that presents Bardie on some channe
 
 Out of scope for “client module”: legacy players (VLC, direct browser playback, etc) that only hit `GET /stream/{slug}`, no control over system or authorization in most cases
 
-Kithara does **not** serve `/` or `/player/`* — those belong to a UI client (typically Plume) at the edge. See [uri-routing](../interfaces/uri-routing.md).
+Kithara does **not** serve `/`, `/control/*`, or `/player/*` — those belong to a UI client (typically Plume) at the edge. See [uri-routing](../interfaces/uri-routing.md).
 
 ## Auth modes (contract)
 

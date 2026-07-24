@@ -57,7 +57,7 @@ Drop a module on the Compose network with its **join secret** and it registers. 
 | `/api/*` | REST API + auth |
 | `/stream/{slug}` | Stream Server |
 
-`/`, `/player/*` are **not** served here — Plume (or another client) at the edge.
+`/`, `/control/*`, `/player/*` are **not** served here — Plume (or another client) at the edge.
 
 ## Health & lifecycle
 

@@ -30,13 +30,13 @@ Endpoint sketch and payloads: [rest-api](../interfaces/rest-api.md).
 ## Now playing
 
 - ICY `StreamTitle` updated on Stream Server
-- REST `GET /api/streams/{id}/now-playing` for clients
-- Optional future: SSE/WebSocket events
+- REST `GET /api/streams/{id}/now-playing` for clients (MVP UIs **poll**)
+- Optional future: **Browser → Kithara** SSE/WebSocket for now-playing / queue push (auth ticket compatible with Plume BFF — no Plume fan-out proxy). Tracking: [kithara#28](https://github.com/Bardie-radio/kithara/issues/28); not an MVP Plume phase.
 
 ## Permissions
 
 Controlled by Struna **control access** mode — see [struna-access.md](struna-access.md). Protected control uses a short **guest code** exchanged for an **ephemeral guest user** + JWT (not the code on every request).
 
-**Related:** [ADR 001](../adrs/001-broadcast-sync-model.md) · [struna-access.md](struna-access.md) · [streams.md](streams.md) · [source-instances.md](source-instances.md)
+**Related:** [ADR 001](../adrs/001-broadcast-sync-model.md) · [struna-access.md](struna-access.md) · [streams.md](streams.md) · [source-instances.md](source-instances.md) · [uri-routing](../interfaces/uri-routing.md) · [Browser→Kithara event channel (#28)](https://github.com/Bardie-radio/kithara/issues/28)
 
 **Read next:** [clients.md](clients.md)
