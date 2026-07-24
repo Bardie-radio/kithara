@@ -1,6 +1,7 @@
 using Bardie.Module.Channel.Certificates;
 using Bardie.Module.Channel.Channel;
 using Bardie.Module.Channel.Participant;
+using Bardie.Module.Source;
 using Bardie.Orchestrator.Source.Catalog;
 using Bardie.Orchestrator.Source.Models;
 using Bardie.Orchestrator.Source.Ports;
@@ -178,6 +179,70 @@ public sealed class SourceModuleOrchestrator
                 return response.Ok;
             },
             cancellationToken);
+
+    /// <summary>Cancels every in-flight track job for a Struna on a play-capable module.</summary>
+    public async Task<TrackControlResult> StopTracksForStrunaAsync(
+        string moduleSlug,
+        string strunaId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(moduleSlug);
+        ArgumentException.ThrowIfNullOrWhiteSpace(strunaId);
+
+        if (!TryGetCapable(moduleSlug, WellKnownSourceCapabilities.Play, out var module, out var failure))
+        {
+            return new TrackControlResult(false, failure);
+        }
+
+        try
+        {
+            using var channel = CreateModuleChannel(module!.GrpcAdvertiseAddress, module.Slug);
+            var client = new SourceModule.SourceModuleClient(channel);
+            var response = await client.StopTracksForStrunaAsync(
+                    new StopTracksForStrunaRequest { StrunaId = strunaId },
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            return new TrackControlResult(response.Ok, response.Ok ? null : "Module rejected StopTracksForStruna.");
+        }
+        catch (Exception ex) when (ex is RpcException or InvalidOperationException)
+        {
+            _logger.LogWarning(ex, "StopTracksForStruna failed for source module {Slug}", moduleSlug);
+            var detail = ex is RpcException rpc ? rpc.Status.Detail : ex.Message;
+            return new TrackControlResult(false, detail);
+        }
+    }
+
+    /// <summary>Ask a prefetch-capable module to warm its blob cache for a track_ref (no FIFO write).</summary>
+    public async Task<TrackControlResult> PrefetchTrackAsync(
+        string moduleSlug,
+        string trackRef,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(moduleSlug);
+        ArgumentException.ThrowIfNullOrWhiteSpace(trackRef);
+
+        if (!TryGetCapable(moduleSlug, WellKnownSourceCapabilities.Prefetch, out var module, out var failure))
+        {
+            return new TrackControlResult(false, failure);
+        }
+
+        try
+        {
+            using var channel = CreateModuleChannel(module!.GrpcAdvertiseAddress, module.Slug);
+            var client = new SourceModule.SourceModuleClient(channel);
+            var response = await client.PrefetchTrackAsync(
+                    new PrefetchTrackRequest { TrackRef = trackRef },
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            return new TrackControlResult(response.Ok, response.Ok ? null : "Module rejected PrefetchTrack.");
+        }
+        catch (Exception ex) when (ex is RpcException or InvalidOperationException)
+        {
+            _logger.LogWarning(ex, "PrefetchTrack failed for source module {Slug}", moduleSlug);
+            var detail = ex is RpcException rpc ? rpc.Status.Detail : ex.Message;
+            return new TrackControlResult(false, detail);
+        }
+    }
 
     public Task<TrackControlResult> PauseTrackAsync(
         string moduleSlug,
@@ -360,7 +425,7 @@ public sealed class SourceModuleOrchestrator
             throw new InvalidOperationException("Host TLS material is not loaded.");
         }
 
-        // SEC-06: pin work-port server cert CN/SAN to the registered module slug.
+        // MESH-CHN-001: pin work-port server cert CN/SAN to the registered module slug.
         return _channelFactory.CreateChannel(
             address,
             _certificateStore.OpenOutboundClientIdentity(),

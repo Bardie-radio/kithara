@@ -11,13 +11,17 @@ public sealed class TrackJob
     public required string StrunaId { get; init; }
     public required string TrackRef { get; init; }
     public required string AudioEndpoint { get; init; }
-    public TrackState State { get; set; } = TrackState.Running;
+    public TrackState State { get; set; } = TrackState.Preparing;
     public string? Title { get; set; }
     public string? Artist { get; set; }
     public string? ErrorMessage { get; set; }
     public CancellationTokenSource Cancellation { get; } = new();
 
-    public bool IsActive => State is TrackState.Running or TrackState.Paused;
+    public bool IsActive =>
+        !Cancellation.IsCancellationRequested
+        && State is TrackState.Preparing or TrackState.Running or TrackState.Paused;
+
+    public void MarkPreparing() => State = TrackState.Preparing;
 
     public void MarkPaused() => State = TrackState.Paused;
 
@@ -39,6 +43,7 @@ public interface ITrackJobRegistry
     bool TryRemove(string trackJobId, out TrackJob? job);
     IReadOnlyCollection<TrackJob> List();
     bool TryStop(string trackJobId);
+    int TryStopAllForStruna(string strunaId);
     bool TryPause(string trackJobId);
     bool TryResume(string trackJobId);
     int CountActive();
@@ -61,6 +66,13 @@ public sealed class TrackJobRegistry : ITrackJobRegistry
         ArgumentException.ThrowIfNullOrWhiteSpace(trackRef);
         ArgumentException.ThrowIfNullOrWhiteSpace(audioEndpoint);
 
+        // Orphan / replace: cancel prior jobs for this Struna. Do NOT remove here —
+        // removing races TrackStatus into synthetic Ended while RunJobAsync is still preparing.
+        List()
+            .Where(j => string.Equals(j.StrunaId, strunaId, StringComparison.Ordinal))
+            .ToList()
+            .ForEach(j => j.Cancellation.Cancel());
+
         var max = _options.MaxParallelJobs;
         if (max > 0 && CountActive() >= max)
         {
@@ -73,6 +85,7 @@ public sealed class TrackJobRegistry : ITrackJobRegistry
             StrunaId = strunaId,
             TrackRef = trackRef,
             AudioEndpoint = audioEndpoint,
+            State = TrackState.Preparing,
         };
 
         if (!_jobs.TryAdd(job.TrackJobId, job))
@@ -111,6 +124,19 @@ public sealed class TrackJobRegistry : ITrackJobRegistry
 
         job.Cancellation.Cancel();
         return true;
+    }
+
+    public int TryStopAllForStruna(string strunaId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(strunaId);
+        // Cancel only — do not MarkEnded here. Marking Ended while WriteAsync is still
+        // winding down makes Neck clear now-playing while PCM/MP3 is still audible.
+        var matching = List()
+            .Where(j =>
+                string.Equals(j.StrunaId, strunaId, StringComparison.Ordinal) && j.IsActive)
+            .ToList();
+        matching.ForEach(j => j.Cancellation.Cancel());
+        return matching.Count;
     }
 
     public bool TryPause(string trackJobId)

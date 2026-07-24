@@ -33,6 +33,36 @@ public class SourceModuleLibTests
     }
 
     [Fact]
+    public async Task PrefetchTrack_without_capability_is_failed_precondition()
+    {
+        var adapter = new StubSource(new ModuleManifest
+        {
+            Slug = "starling",
+            Kind = "source",
+            Capabilities = ["search", "play"],
+        });
+
+        var ex = await Assert.ThrowsAsync<RpcException>(
+            () => adapter.PrefetchTrack(new PrefetchTrackRequest { TrackRef = "x" }, context: null!));
+        Assert.Equal(StatusCode.FailedPrecondition, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task PrefetchTrack_with_capability_without_override_is_unimplemented()
+    {
+        var adapter = new StubSource(new ModuleManifest
+        {
+            Slug = "magpie",
+            Kind = "source",
+            Capabilities = ["search", "play", "prefetch"],
+        });
+
+        var ex = await Assert.ThrowsAsync<RpcException>(
+            () => adapter.PrefetchTrack(new PrefetchTrackRequest { TrackRef = "x" }, context: null!));
+        Assert.Equal(StatusCode.Unimplemented, ex.StatusCode);
+    }
+
+    [Fact]
     public async Task PauseTrack_with_capability_without_registry_is_unimplemented()
     {
         var adapter = new StubSource(new ModuleManifest
@@ -52,6 +82,7 @@ public class SourceModuleLibTests
     {
         var registry = new TrackJobRegistry(Options.Create(new SourceModuleOptions { MaxParallelJobs = 4 }));
         var job = registry.Create("s1", "ref", "/tmp/a.pcm");
+        Assert.Equal(TrackState.Preparing, job.State);
         var adapter = new StubSource(
             new ModuleManifest
             {
@@ -72,6 +103,47 @@ public class SourceModuleLibTests
         var stopped = await adapter.StopTrack(new StopTrackRequest { TrackJobId = job.TrackJobId }, null!);
         Assert.True(stopped.Ok);
         Assert.True(job.Cancellation.IsCancellationRequested);
+
+        var again = await adapter.StopTrack(new StopTrackRequest { TrackJobId = job.TrackJobId }, null!);
+        Assert.True(again.Ok);
+
+        var missing = await adapter.StopTrack(new StopTrackRequest { TrackJobId = "no-such-job" }, null!);
+        Assert.True(missing.Ok);
+    }
+
+    [Fact]
+    public async Task StopTracksForStruna_cancels_matching_jobs()
+    {
+        var registry = new TrackJobRegistry(Options.Create(new SourceModuleOptions { MaxParallelJobs = 4 }));
+        var a = registry.Create("s1", "ref-a", "/tmp/a.pcm");
+        var other = registry.Create("s2", "ref-b", "/tmp/b.pcm");
+        var adapter = new StubSource(
+            new ModuleManifest { Slug = "magpie", Kind = "source", Capabilities = ["play"] },
+            registry);
+
+        var response = await adapter.StopTracksForStruna(
+            new StopTracksForStrunaRequest { StrunaId = "s1" },
+            null!);
+        Assert.True(response.Ok);
+        Assert.Equal(1, response.StoppedCount);
+        Assert.True(a.Cancellation.IsCancellationRequested);
+        Assert.Equal(TrackState.Preparing, a.State);
+        Assert.True(registry.TryGet(a.TrackJobId, out _));
+        Assert.True(registry.TryGet(other.TrackJobId, out _));
+    }
+
+    [Fact]
+    public void TrackJobRegistry_create_replaces_sibling_on_same_struna()
+    {
+        var registry = new TrackJobRegistry(Options.Create(new SourceModuleOptions { MaxParallelJobs = 1 }));
+        var first = registry.Create("s1", "ref-a", "/tmp/a.pcm");
+        var second = registry.Create("s1", "ref-b", "/tmp/b.pcm");
+        Assert.True(first.Cancellation.IsCancellationRequested);
+        Assert.False(first.IsActive);
+        Assert.True(registry.TryGet(first.TrackJobId, out _));
+        Assert.True(registry.TryGet(second.TrackJobId, out _));
+        Assert.Equal(TrackState.Preparing, second.State);
+        Assert.Equal(1, registry.CountActive());
     }
 
     [Fact]
@@ -124,6 +196,7 @@ public class SourceModuleLibTests
     {
         var registry = new TrackJobRegistry(Options.Create(new SourceModuleOptions()));
         var job = registry.Create("struna-1", "ref", "/tmp/a.pcm");
+        Assert.Equal(TrackState.Preparing, job.State);
         Assert.True(registry.TryGet(job.TrackJobId, out var found));
         Assert.Equal(job.TrackJobId, found!.TrackJobId);
         Assert.True(registry.TryRemove(job.TrackJobId, out _));
@@ -131,11 +204,11 @@ public class SourceModuleLibTests
     }
 
     [Fact]
-    public void TrackJobRegistry_enforces_parallel_limit()
+    public void TrackJobRegistry_enforces_parallel_limit_across_strunas()
     {
         var registry = new TrackJobRegistry(Options.Create(new SourceModuleOptions { MaxParallelJobs = 1 }));
         registry.Create("s1", "ref-a", "/tmp/a.pcm");
-        var ex = Assert.Throws<InvalidOperationException>(() => registry.Create("s1", "ref-b", "/tmp/b.pcm"));
+        var ex = Assert.Throws<InvalidOperationException>(() => registry.Create("s2", "ref-b", "/tmp/b.pcm"));
         Assert.Contains("limit", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 

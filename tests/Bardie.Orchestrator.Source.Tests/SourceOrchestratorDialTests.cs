@@ -1,6 +1,7 @@
 using Bardie.Module.Channel;
 using Bardie.Module.Channel.Certificates;
 using Bardie.Module.Channel.Channel;
+using Bardie.Module.Source;
 using Bardie.Orchestrator.Source;
 using Bardie.Orchestrator.Source.Catalog;
 using Bardie.Orchestrator.Source.Ports;
@@ -103,6 +104,31 @@ public class SourceOrchestratorDialTests
         var result = await orch.PauseTrackAsync("magpie", "job-1");
         Assert.False(result.Ok);
         Assert.Contains("pause", result.FailureReason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task PrefetchTrackAsync_fails_when_module_lacks_prefetch()
+    {
+        var orch = CreateOrchestrator(catalog =>
+        {
+            catalog.Upsert(new SourceModuleRegistration
+            {
+                Slug = "magpie",
+                GrpcAdvertiseAddress = "https://magpie:5001",
+                Capabilities =
+                [
+                    WellKnownSourceCapabilities.Search,
+                    WellKnownSourceCapabilities.Play,
+                ],
+                RegisteredAt = DateTimeOffset.UtcNow,
+                LastHeartbeatAt = DateTimeOffset.UtcNow,
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5),
+            });
+        });
+
+        var result = await orch.PrefetchTrackAsync("magpie", "ref-1");
+        Assert.False(result.Ok);
+        Assert.Contains("prefetch", result.FailureReason, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

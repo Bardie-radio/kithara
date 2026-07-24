@@ -45,12 +45,41 @@ public static class TrackStatusStreaming
 
         var interval = pollInterval ?? TimeSpan.FromMilliseconds(200);
 
-        if (!jobs.TryGet(trackJobId, out var job) || job is null)
+        TrackJob? job = null;
+        for (var attempt = 0; attempt < 25; attempt++)
         {
-            throw SourceModuleBase.JobNotFound(trackJobId);
+            if (jobs.TryGet(trackJobId, out job) && job is not null)
+            {
+                break;
+            }
+
+            try
+            {
+                await Task.Delay(interval, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+        }
+
+        if (job is null)
+        {
+            // Still missing after brief wait — host likely raced a replace/stop.
+            await responseStream.WriteAsync(
+                    new TrackStatusEvent
+                    {
+                        TrackJobId = trackJobId,
+                        State = TrackState.Ended,
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return;
         }
 
         TrackState? last = null;
+        string? lastTitle = null;
+        string? lastArtist = null;
         while (!cancellationToken.IsCancellationRequested)
         {
             if (!jobs.TryGet(trackJobId, out job) || job is null)
@@ -70,16 +99,22 @@ public static class TrackStatusStreaming
                 break;
             }
 
-            if (last != job.State)
+            var title = job.Title ?? string.Empty;
+            var artist = job.Artist ?? string.Empty;
+            if (last != job.State
+                || !string.Equals(lastTitle, title, StringComparison.Ordinal)
+                || !string.Equals(lastArtist, artist, StringComparison.Ordinal))
             {
                 last = job.State;
+                lastTitle = title;
+                lastArtist = artist;
                 await responseStream.WriteAsync(
                         new TrackStatusEvent
                         {
                             TrackJobId = job.TrackJobId,
                             State = job.State,
-                            Title = job.Title ?? string.Empty,
-                            Artist = job.Artist ?? string.Empty,
+                            Title = title,
+                            Artist = artist,
                             ErrorMessage = job.ErrorMessage ?? string.Empty,
                         },
                         cancellationToken)

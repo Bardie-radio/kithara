@@ -1,9 +1,9 @@
-namespace Bardie.Orchestrator.Source;
+namespace Bardie.Module.Source;
 
 /// <summary>
-/// Bardie host conventions for source-module <c>RegisterRequest.capabilities</c>.
-/// Mesh contract treats capabilities as open strings; only the Source Orchestrator
-/// (and host wrappers) gate RPCs on these values. ModuleChannel does not interpret them.
+/// Shared Bardie vocabulary for source-module <c>RegisterRequest.capabilities</c>.
+/// Mesh contract treats capabilities as open strings; ModuleChannel does not interpret them.
+/// Modules gate optional RPCs here; the Source Orchestrator gates host dials on the same values.
 /// </summary>
 public static class WellKnownSourceCapabilities
 {
@@ -15,4 +15,7 @@ public static class WellKnownSourceCapabilities
 
     /// <summary>Implements <c>PauseTrack</c> / <c>ResumeTrack</c> without tearing down the job.</summary>
     public const string Pause = "pause";
+
+    /// <summary>Implements <c>PrefetchTrack</c> (warm blob cache; no FIFO write).</summary>
+    public const string Prefetch = "prefetch";
 }
