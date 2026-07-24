@@ -1,8 +1,8 @@
-using Bardie.Orchestrator.Auth.Catalog;
+using Bardie.Harness.Auth.Catalog;
 using Bardie.Module.Channel;
 using Bardie.Module.Channel.Certificates;
 using Bardie.Modules.V1;
-using Bardie.Orchestrator.Source.Catalog;
+using Bardie.Harness.Source.Catalog;
 using Grpc.Core;
 using Microsoft.Extensions.Options;
 
@@ -154,7 +154,7 @@ public sealed class ModuleRegistryOperations
             PermissionCeiling = permissionCeiling,
         });
 
-        ProjectToOrchestratorCatalogs(request, slug, kind, capabilities, now, expiresAt);
+        ProjectToHarnessCatalogs(request, slug, kind, capabilities, now, expiresAt);
 
         _logger.LogInformation(
             "Module {Slug} ({Kind}) registered; bootstrap={Bootstrap}; well_known={WellKnown}",
@@ -219,7 +219,7 @@ public sealed class ModuleRegistryOperations
         }
     }
 
-    private void ProjectToOrchestratorCatalogs(
+    private void ProjectToHarnessCatalogs(
         RegisterRequest request,
         string slug,
         string kind,
@@ -245,7 +245,7 @@ public sealed class ModuleRegistryOperations
 
             case WellKnownModuleKinds.Source:
                 var fields = request.Source?.SearchFields
-                    .Select(f => new Bardie.Orchestrator.Source.Catalog.SearchFieldDescriptor
+                    .Select(f => new Bardie.Harness.Source.Catalog.SearchFieldDescriptor
                     {
                         Name = f.Name,
                         Required = f.Required,
@@ -265,12 +265,12 @@ public sealed class ModuleRegistryOperations
                 break;
 
             case WellKnownModuleKinds.Client:
-                // Ceiling lives on ModuleRegistrationRecord (Upsert above); no orch catalog for clients.
+                // Ceiling lives on ModuleRegistrationRecord (Upsert above); no harness catalog for clients.
                 break;
 
             default:
                 _logger.LogInformation(
-                    "Module {Slug} registered with host-unknown kind {Kind}; registry only (no orch catalog)",
+                    "Module {Slug} registered with host-unknown kind {Kind}; registry only (no harness catalog)",
                     slug,
                     kind);
                 break;

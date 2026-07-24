@@ -10,7 +10,7 @@ Bardie is modular — when something breaks, you need the full path across Kitha
 
 **Everything is under coverage.** Every component exports OTLP traces, metrics, and logs:
 
-- Kithara (API, Neck, Stream Server, auth orchestrator)
+- Kithara (API, Neck, Stream Server, auth harness)
 - Plume, Beak, Cauda (clients)
 - Source modules (Magpie, Starling, Catbird, …)
 - Auth adapter modules (Bes, Argus, Hecate, …)

@@ -1,5 +1,5 @@
-using Bardie.Orchestrator.Auth;
-using Bardie.Orchestrator.Auth.Ports;
+using Bardie.Harness.Auth;
+using Bardie.Harness.Auth.Ports;
 using Kithara.Features.Auth;
 using Kithara.Infrastructure.Neck;
 using Kithara.Infrastructure.Persistence.Entities;
@@ -90,11 +90,11 @@ internal static class StrunaResourceGate
         else
         {
             var persistence = http.RequestServices.GetRequiredService<IAuthPersistence>();
-            var authOrch = http.RequestServices.GetRequiredService<AuthModuleOrchestrator>();
+            var authHarness = http.RequestServices.GetRequiredService<AuthModuleHarness>();
             var resolved = await AuthPrincipal.ResolveAsync(
                     http.User,
                     persistence,
-                    authOrch,
+                    authHarness,
                     http.RequestAborted)
                 .ConfigureAwait(false);
             if (resolved is null)

@@ -8,7 +8,7 @@ Auth must be modular (login+password, OIDC, passkeys, custom) without forcing a 
 
 ## Decision
 
-- **Auth Orchestrator** lives **inside Kithara** (discovery merge, route opaque auth/refresh payloads, **login JWT verification** via registered JWKS, **join secrets**, listen/guest secrets, **guest-code exchange**, **`seedAdmin` orchestration**). Kithara does **not** mint auth-module **login** JWTs.
+- **Auth Harness** lives **inside Kithara** (discovery merge, route opaque auth/refresh payloads, **login JWT verification** via registered JWKS, **join secrets**, listen/guest secrets, **guest-code exchange**, **`seedAdmin` orchestration**). Kithara does **not** mint auth-module **login** JWTs.
 - **Ephemeral guest users:** On protected-control guest-code exchange, Kithara creates a **new ephemeral guest user** per joiner, mints access (+ refresh) JWTs for that user, and destroys those users when the Struna is deleted. Rotating the guest code **blocks new joins only**. Not an auth-module account; still a `User` row for ACL / search cache. See [struna-access](../domains/struna-access.md).
 - **No built-in auth provider.** Every login method is a separate auth-adapter container on gRPC.
 - **Named adapters:** **Bes** (password, MVP), **Argus** (OIDC, v0.2), **Hecate** (passkeys, future). Modules are independent — no cross-module “modes.”

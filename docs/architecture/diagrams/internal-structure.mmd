@@ -6,7 +6,7 @@ flowchart TB
   subgraph kithara [Kithara]
     API[REST API]
     StreamSrv[Stream Server]
-    AuthOrch[Auth Orchestrator]
+    AuthHarness[Auth Harness]
     Registry[Module Registry]
     Neck[Neck Service]
     Silence[Silence feeder]
@@ -19,11 +19,11 @@ flowchart TB
   HTTP --> API
   HTTP --> StreamSrv
   GRPC --> Registry
-  API --> AuthOrch
+  API --> AuthHarness
   API --> Neck
   API --> Persist
-  AuthOrch --> Registry
-  AuthOrch --> Persist
+  AuthHarness --> Registry
+  AuthHarness --> Persist
   Neck --> Registry
   Neck --> Silence
   Silence --> FIFO

@@ -1,8 +1,8 @@
 using Bardie.Module.Channel.Certificates;
 using Bardie.Module.Channel.Channel;
-using Bardie.Orchestrator.Source;
-using Bardie.Orchestrator.Source.Catalog;
-using Bardie.Orchestrator.Source.Ports;
+using Bardie.Harness.Source;
+using Bardie.Harness.Source.Catalog;
+using Bardie.Harness.Source.Ports;
 using Kithara.Infrastructure.Neck;
 using Kithara.Infrastructure.Persistence;
 using Kithara.Infrastructure.Storage;
@@ -30,7 +30,7 @@ public class NeckStrunaFifoTests
             var neck = new Neck(
                 Options.Create(new NeckOptions { StrunaFifoRoot = root }),
                 new ThrowingDbContextFactory(),
-                CreateUnusedSourceOrchestrator(),
+                CreateUnusedSourceHarness(),
                 encoder,
                 NullLogger<Neck>.Instance);
 
@@ -55,14 +55,14 @@ public class NeckStrunaFifoTests
         }
     }
 
-    private static SourceModuleOrchestrator CreateUnusedSourceOrchestrator() =>
+    private static SourceModuleHarness CreateUnusedSourceHarness() =>
         new(
             new SourceModuleCatalog(),
             new UnusedBlobStorage(),
             new UnusedChannelFactory(),
             new UnloadedCertificateStore(),
             new ConfigurationBuilder().Build(),
-            NullLogger<SourceModuleOrchestrator>.Instance);
+            NullLogger<SourceModuleHarness>.Instance);
 
     private sealed class ThrowingDbContextFactory : IDbContextFactory<KitharaDbContext>
     {

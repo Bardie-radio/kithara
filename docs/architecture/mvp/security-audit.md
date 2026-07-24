@@ -13,7 +13,7 @@ Living audit of trust assumptions across the Module mesh, auth vertical, library
 | Surface | Owns |
 |---------|------|
 | `MESH` | Registry, Channel, CA / TLS bootstrap |
-| `AUTH` | Bes, JWT mint, JWKS, rotate, roles, orch routing |
+| `AUTH` | Bes, JWT mint, JWKS, rotate, roles, harness routing |
 | `GUEST` | Guest refresh / exchange / lockout |
 | `LIB` | Tune / blob ownership |
 | `NECK` | Jobs, TrackStatus, PCM, orphan recovery |
@@ -43,7 +43,7 @@ Historical aliases (`SEC-*`, `NEW-*`, `DES-*`, `KI-*`, `QA-*`, `DOC-*`, `OPS-*`)
 | Host CA + gRPC server cert | **Yes**, if `TlsDataPath` is on a volume | Generate-once; load on later boots |
 | Module client certs (auto) | **No** on the host | Re-issued on every successful `Register`; module must store PEMs |
 | Module client certs (preshared) | Operator-placed files | Not emitted on the wire |
-| Registry + orch catalogs | **No** | In-memory; heartbeat TTL; empty after restart |
+| Registry + harness catalogs | **No** | In-memory; heartbeat TTL; empty after restart |
 
 ---
 
@@ -78,7 +78,7 @@ Historical aliases (`SEC-*`, `NEW-*`, `DES-*`, `KI-*`, `QA-*`, `DOC-*`, `OPS-*`)
 | **AUTH-JWKS-001** | JWKS snapshot + hosted refresh; resolver reads cache only | Cold window until first refresh |
 | **GUEST-XCHG-001** | `guest-exchange` fixed window 10/min per IP+Struna | Failure lockout |
 | **MESH-CHN-001** | `CertificateIdentity.IsHostClient` inbound; `expectedServerIdentity` outbound | — |
-| **AUTH-ORCH-001** | Auth orch discovery `provider_id → module` map | — |
+| **AUTH-ORCH-001** | Auth harness discovery `provider_id → module` map | — |
 
 ### Soft residuals / polish (Phases 4–6 audit → Phase 8)
 
@@ -122,7 +122,7 @@ gRPC checks `module_slug ==` caller identity, then passes `StorageKey` through w
 
 **Severity:** P0  
 **Component:** Bes `SeedAdmin` / `Authenticate`  
-**Fix:** Phase **6** (Bes + orch)
+**Fix:** Phase **6** (Bes + harness)
 
 `SeedAdmin` sets `MustRotateCredentials=true` and logs a one-time password, but Authenticate always returns/mints with rotate cleared and there is no password-change / binding-update path. Seeded password keeps working.
 
@@ -134,7 +134,7 @@ gRPC checks `module_slug ==` caller identity, then passes `StorageKey` through w
 
 **Severity:** P0  
 **Component:** Bes Authenticate / Refresh / SeedAdmin mint  
-**Fix:** Phase **6** (Bes; orch must not invent admin)
+**Fix:** Phase **6** (Bes; harness must not invent admin)
 
 Authenticate, Refresh, and SeedAdmin hardcode `roles=[admin]` into JWT/claims. Any valid Bes credential is full admin — privilege escalation in the mint path, not “multi-user polish later.”
 

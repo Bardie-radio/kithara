@@ -1,6 +1,6 @@
 using System.Security.Claims;
 using System.Text.Json.Serialization;
-using Bardie.Orchestrator.Auth;
+using Bardie.Harness.Auth;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Kithara.Features.Auth;
@@ -22,7 +22,7 @@ public static class AuthEndpoints
         return endpoints;
     }
 
-    private static async Task<IResult> DiscoveryAsync(AuthModuleOrchestrator orch, CancellationToken ct)
+    private static async Task<IResult> DiscoveryAsync(AuthModuleHarness orch, CancellationToken ct)
     {
         var providers = await orch.GetProvidersAsync(ct).ConfigureAwait(false);
         return Results.Ok(new
@@ -47,7 +47,7 @@ public static class AuthEndpoints
 
     private static async Task<IResult> AuthenticateAsync(
         [FromBody] AuthenticateRequestBody body,
-        AuthModuleOrchestrator orch,
+        AuthModuleHarness orch,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(body.ProviderId))
@@ -78,7 +78,7 @@ public static class AuthEndpoints
 
     private static async Task<IResult> RefreshAsync(
         [FromBody] RefreshRequestBody body,
-        AuthModuleOrchestrator orch,
+        AuthModuleHarness orch,
         GuestJwtService guests,
         CancellationToken ct)
     {

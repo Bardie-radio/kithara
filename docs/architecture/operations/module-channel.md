@@ -6,7 +6,7 @@ Kithara (and future external hosts) embed **`Bardie.Module.Channel`** for module
 
 ## Why it exists
 
-Modules dial the host to `Register`, then speak mTLS for Heartbeat and work RPCs. Auth/source orchestrator libraries reuse the same outbound dial helpers. Shipping mTLS as a packable library keeps Bardie Compose and outside hosts on one trust story ([org 07](https://github.com/Bardie-radio/.github/blob/main/profile/docs/architecture/07-modules-beyond-bardie.md)).
+Modules dial the host to `Register`, then speak mTLS for Heartbeat and work RPCs. Auth/source harness libraries reuse the same outbound dial helpers. Shipping mTLS as a packable library keeps Bardie Compose and outside hosts on one trust story ([org 07](https://github.com/Bardie-radio/.github/blob/main/profile/docs/architecture/07-modules-beyond-bardie.md)).
 
 ## Pack + consume (no proto copies)
 
@@ -63,7 +63,7 @@ Loader: `ModuleManifestLoader` + `BuildRegisterRequest(joinSecret, advertiseAddr
 
 ## Bardie capabilities vocabulary (host convention)
 
-Capabilities are **open strings** on the wire. ModuleChannel never interprets them. The tables below are **Bardie conventions** shared by source modules and the host (Kithara’s Auth Orchestrator gates via `Bardie.Orchestrator.Auth.WellKnownAuthCapabilities`; source vocabulary lives in `Bardie.Module.Source.WellKnownSourceCapabilities`, used by `SourceModuleBase` and the Source Orchestrator) — documented here so module authors see the vocabulary next to Register.
+Capabilities are **open strings** on the wire. ModuleChannel never interprets them. The tables below are **Bardie conventions** shared by source modules and the host (Kithara’s Auth Harness gates via `Bardie.Harness.Auth.WellKnownAuthCapabilities`; source vocabulary lives in `Bardie.Module.Source.WellKnownSourceCapabilities`, used by `SourceModuleBase` and the Source Harness) — documented here so module authors see the vocabulary next to Register.
 
 | Put in `capabilities[]` | Keep elsewhere |
 |-------------------------|----------------|
@@ -89,7 +89,7 @@ Capabilities are **open strings** on the wire. ModuleChannel never interprets th
 | `selfRegister` | Open signup via Authenticate (Bes “register” form) without operator seed |
 | `passwordReset` | Host/UI can expose reset; module owns ceremony in the opaque `Authenticate` bag |
 
-**Not a module capability:** account linking stays **Kithara’s story** (explicit multi-provider link in the user DB / orchestrator). Auth adapters only prove identity for their provider — they do not advertise `accountLink`.
+**Not a module capability:** account linking stays **Kithara’s story** (explicit multi-provider link in the user DB / harness). Auth adapters only prove identity for their provider — they do not advertise `accountLink`.
 
 ### Do not put in `capabilities[]`
 

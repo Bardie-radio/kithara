@@ -36,7 +36,7 @@ sequenceDiagram
 
 ## Discovery
 
-`GET /api/auth/discovery` — Auth Orchestrator merges `GetProviders()` from registered adapters. There is no built-in provider.
+`GET /api/auth/discovery` — Auth Harness merges `GetProviders()` from registered adapters. There is no built-in provider.
 
 MVP: one `form_schema` provider from **Bes** (`ProviderDescriptor.ui.form_schema` with typed fields). Client (e.g. Plume) renders from the field list — adapters do **not** host login HTML. Clients switch on the `ui` oneof case only; they must not branch on provider `id`.
 

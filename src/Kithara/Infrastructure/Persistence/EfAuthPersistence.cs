@@ -1,6 +1,6 @@
 using System.Text;
 using System.Text.Json;
-using Bardie.Orchestrator.Auth.Ports;
+using Bardie.Harness.Auth.Ports;
 using Kithara.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
 

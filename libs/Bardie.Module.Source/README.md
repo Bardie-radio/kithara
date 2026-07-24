@@ -17,7 +17,7 @@ builder.Services.AddSourceModuleDefaults(builder.Configuration);
 | Type | Role |
 |------|------|
 | `SourceModuleBase` | `Health`; pause/prefetch gates via `WellKnownSourceCapabilities`; default Stop / Pause / Resume / TrackStatus via registry |
-| `WellKnownSourceCapabilities` | Shared `search` / `play` / `pause` / `prefetch` strings (modules + Source Orchestrator) |
+| `WellKnownSourceCapabilities` | Shared `search` / `play` / `pause` / `prefetch` strings (modules + Source Harness) |
 | `ModuleManifestSourceBag` | Parse opaque `source.searchFields` from the manifest |
 | `SourceSearchFieldsRegisterRequestCustomizer` | Attach `Source.search_fields` on Register (manifest → options → `title`) |
 | `ITrackJobRegistry` / `TrackJobRegistry` | Job lifecycle, parallel limit, Stop / Pause / Resume |

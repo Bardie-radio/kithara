@@ -1,10 +1,10 @@
-using Bardie.Orchestrator.Auth.Catalog;
-using Bardie.Orchestrator.Source.Catalog;
+using Bardie.Harness.Auth.Catalog;
+using Bardie.Harness.Source.Catalog;
 using Microsoft.Extensions.Options;
 
 namespace Kithara.Features.Modules;
 
-/// <summary>Expires stale Module Registry entries and drops matching orch catalog rows.</summary>
+/// <summary>Expires stale Module Registry entries and drops matching harness catalog rows.</summary>
 public sealed class ModuleRegistryJanitor : BackgroundService
 {
     private readonly InMemoryModuleRegistry _registry;

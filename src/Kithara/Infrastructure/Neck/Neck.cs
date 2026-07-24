@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using Bardie.Orchestrator.Source;
+using Bardie.Harness.Source;
 using Kithara.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -15,7 +15,7 @@ public sealed partial class Neck
 {
     private readonly string _fifoRoot;
     private readonly IDbContextFactory<KitharaDbContext> _dbFactory;
-    private readonly SourceModuleOrchestrator _orch;
+    private readonly SourceModuleHarness _orch;
     private readonly StrunaEncoderSupervisor _encoder;
     private readonly ConcurrentDictionary<Guid, ActiveTrackJob> _jobs = new();
     private readonly ConcurrentDictionary<Guid, NowPlayingSnapshot> _nowPlaying = new();
@@ -26,7 +26,7 @@ public sealed partial class Neck
     public Neck(
         IOptions<NeckOptions> options,
         IDbContextFactory<KitharaDbContext> dbFactory,
-        SourceModuleOrchestrator orch,
+        SourceModuleHarness orch,
         StrunaEncoderSupervisor encoder,
         ILogger<Neck> logger)
     {

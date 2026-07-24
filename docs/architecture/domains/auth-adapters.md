@@ -1,6 +1,6 @@
 # Auth Adapters
 
-Auth modules plug into Kithara’s **Auth Orchestrator** over one shared gRPC contract. Modules are **decoupled** from each other — deploying Bes does not configure Argus, and vice versa. There is no built-in auth inside Kithara.
+Auth modules plug into Kithara’s **Auth Harness** over one shared gRPC contract. Modules are **decoupled** from each other — deploying Bes does not configure Argus, and vice versa. There is no built-in auth inside Kithara.
 
 **Split of responsibility:**
 
