@@ -91,7 +91,7 @@ Phases are **dependency-ordered** for *shipping* outcomes. Phases 4–6 ran in p
 | **4** | Neck + encode | Alive Struna, silence feeder, FFmpeg supervisor + **Channel peer pin (MESH-CHN-001)** | Complete |
 | **5** | Stream Server | `GET /stream/{slug}` ICY + listen-token gate | Complete |
 | **6** | Control REST + auth hardening | Remaining control depth + **security P0/P1** + harness routing (AUTH-ORCH-001) | Complete |
-| **7** | Plume MVP | Discovery login + control UI (optional client) | **Next** |
+| **7** | Plume MVP | Umbrella: reference UI exists (Plume Phases 1–6) | **Next** |
 | **8** | Compose + verify | Reference stack, join secrets, OTLP E2E, **QA/OPS/DOC debt** | After 7 (or parallel) |
 
 
@@ -422,30 +422,32 @@ libs/
 
 **Why:** Reference user-aware UI; stack must still work without it.
 
-### Work (Plume)
+Kithara Phase 7 is the **stack umbrella** — “Plume exists and meets exit criteria.” Delivery order lives in Plume’s own phases:
 
-1. Edge routes `/`, `/player/{slug}`.
-2. Discovery-driven Bes login; store Bearer + refresh.
-3. Wire control verbs; guest exchange UX for protected control.
-4. Browser player **off by default**; optional listen to `/stream/{slug}`.
-5. OTel `bardie.plume`.
+- [Plume implementation plan](https://github.com/Bardie-radio/plume/blob/main/docs/architecture/mvp/implementation-plan.md) (Plume Phases 1–6)
+- [Plume UI stack](https://github.com/Bardie-radio/plume/blob/main/docs/architecture/03-ui-stack.md) (`/control/{slug}` desk vs `/player/{slug}` listen surface)
 
+Do **not** renumber Plume work as “Kithara 7.1 / 7.2”. Satisfies this phase when Plume Phases 1–6 exit.
 
+### Work (Plume — summary)
+
+1. Edge routes `/`, `/control/{slug}`, `/player/{slug}`.
+2. BFF session + discovery-driven Bes login (no JWT in browser).
+3. Control desk (`/control/{slug}`): queue, search, transport; poll now-playing.
+4. Listen surface (`/player/{slug}`): prominent now-playing; browser audio **off by default**; optional `/stream/{slug}`.
+5. Guest exchange UX for protected control; Register + OTel `bardie.plume`.
 
 ### Exit criteria
 
 - Human can create a Struna, search Magpie, play, and hear it in VLC via `/stream/{slug}`.
 - Removing Plume from Compose leaves API + stream + modules working.
 
-
-
 ### Cross-repo
-
 
 | Repo      | Follow-up                                                                                             |
 | --------- | ----------------------------------------------------------------------------------------------------- |
-| **plume** | [mvp/v0.1-scope](https://github.com/Bardie-radio/plume/blob/main/docs/architecture/mvp/v0.1-scope.md) |
-| **org**   | Edge path map already documented — keep aligned                                                       |
+| **plume** | [implementation-plan](https://github.com/Bardie-radio/plume/blob/main/docs/architecture/mvp/implementation-plan.md) · [03-ui-stack](https://github.com/Bardie-radio/plume/blob/main/docs/architecture/03-ui-stack.md) · [mvp/v0.1-scope](https://github.com/Bardie-radio/plume/blob/main/docs/architecture/mvp/v0.1-scope.md) |
+| **org**   | Edge path map `/control/*` + `/player/*` — keep aligned                                                       |
 
 
 ---

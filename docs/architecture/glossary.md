@@ -14,7 +14,7 @@ Dual naming: **codename** (musical instruments theme) + **plain English**. When 
 | **ICY** / **ICY-over-HTTP** | Shoutcast-style metadata stream | Continuous HTTP audio with in-band `StreamTitle` / `icy-metaint` metadata |
 | **Tune** | Library item | Shared library unit: queue + history + optional blob cache; module + external id; not stream-owned |
 | **QueueEntry** | Queue item | Struna queue slot pointing at a **Tune id** |
-| **Plume** | Web UI client module | Optional **user-aware** client: `/`, `/player/{slug}` |
+| **Plume** | Web UI client module | Optional **user-aware** client: `/`, `/control/{slug}` (remote desk), `/player/{slug}` (listen surface) |
 | **Beak** | Discord bot client | Future **static** client: play Strunas in Discord voice; guild-scoped managed users |
 | **Cauda** | Telegram bot client | Future **user-aware** client: remote Struna control from Telegram chats |
 | **Client module** | User-facing integration | Deployable surface (Plume, Beak, Cauda, …) that calls Kithara REST |

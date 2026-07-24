@@ -35,7 +35,7 @@ Kithara sits at the center of Bardie. **Client modules**, **source modules**, an
 
 ```text
 ├── Client modules       → User-facing control and discovery surfaces
-│   ├── Plume            → Web UI (MVP); / and /player/{slug}
+│   ├── Plume            → Web UI (MVP); `/`, `/control/{slug}`, `/player/{slug}`
 │   ├── Beak             → Discord voice + stream control (future)
 │   └── Cauda            → Telegram remote Struna control (future)
 ├── Source modules       → Audio providers (gRPC + FIFO)
@@ -57,8 +57,9 @@ More client modules may follow — Bardie does not assume a single UI; it assume
 |------|---------|
 | `/api` | Kithara REST API |
 | `/stream/{slug}` | Live ICY-over-HTTP audio (Kithara) |
-| `/player/{slug}` | Stream control surface (**Plume** — not served by Kithara) |
-| `/` | Plume main UI |
+| `/control/{slug}` | Remote control desk (**Plume** — not served by Kithara) |
+| `/player/{slug}` | Listen / player surface (**Plume** — not served by Kithara) |
+| `/` | Plume home |
 
 Full routing detail: [uri-routing](docs/architecture/interfaces/uri-routing.md).
 

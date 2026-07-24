@@ -2,6 +2,8 @@
 
 Living index of **non-security** product / design footguns discovered after Phases 4–6. Security findings stay in [security-audit.md](security-audit.md). Soft residuals already listed there (e.g. `NECK-JOB-001`, `AUTH-ROT-002`) are not duplicated here unless they need a design note.
 
+**Plume-local** scaffold / BFF / UI footguns (`PLUME-*`) live in [Plume known-issues](https://github.com/Bardie-radio/plume/blob/main/docs/architecture/mvp/known-issues.md) — do not duplicate them here.
+
 **Owner default:** Phase 8 polish unless noted.
 
 IDs use `SURFACE-TOPIC-NNN` (see [security-audit ID scheme](security-audit.md#id-scheme)). Former `KI-*` aliases: `KI-01` → `NECK-PCM-001`, `KI-02` → `NECK-SWP-001`.

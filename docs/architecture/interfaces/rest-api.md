@@ -158,6 +158,6 @@ Quickplay / quickqueue still pick a source via configured **priority** (and late
 - `429` — guest exchange rate-limited (Phase 6 / GUEST-XCHG-001)
 - `502` — source/auth **module dial failed** (gRPC/capability/search/`StartTrack`/`PauseTrack`/… upstream error). Body includes an `error` string; do not treat as a client validation failure
 
-**Related:** [auth.md](auth.md) · [struna-access](../domains/struna-access.md) · [playback-control](../domains/playback-control.md) · [source-modules](../domains/source-modules.md) · [streams](../domains/streams.md)
+**Related:** [auth.md](auth.md) · [struna-access](../domains/struna-access.md) · [playback-control](../domains/playback-control.md) · [source-modules](../domains/source-modules.md) · [streams](../domains/streams.md) · post-MVP [Browser→Kithara event channel (#28)](https://github.com/Bardie-radio/kithara/issues/28)
 
 **Read next:** [grpc-source-module.md](grpc-source-module.md)

@@ -5,19 +5,20 @@ Public path map for one Bardie hostname. Edge product and Compose layout live in
 ```mermaid
 flowchart TB
   Proxy[Reverse proxy]
-  Proxy -->|/ and /player/*| Plume
+  Proxy -->|/ and /control/* and /player/*| Plume
   Proxy -->|/api/*| Kithara
   Proxy -->|/stream/*| Kithara
 ```
 
-**Stream Server is inside Kithara** — `/stream/*` is not a separate container. Plume is optional; without it, `/` and `/player/*` simply have no UI target at the edge.
+**Stream Server is inside Kithara** — `/stream/*` is not a separate container. Plume is optional; without it, `/`, `/control/*`, and `/player/*` simply have no UI target at the edge.
 
 ## Route table
 
 | Path | Target | Auth |
 |------|--------|------|
 | `/` | Plume (optional) | Auth required when Plume is used |
-| `/player/{slug}` | Plume (optional) | Per Struna control mode |
+| `/control/{slug}` | Plume (optional) | Per Struna **control** mode — remote control desk |
+| `/player/{slug}` | Plume (optional) | Per Struna **playback** mode — listen / player surface |
 | `/api/*` | Kithara REST (incl. auth + `…/guest/exchange` + global search) | Login JWT; ephemeral guest JWT; join secret only for static-module admin |
 | `/stream/{slug}` | Kithara Stream Server | Per Struna playback mode |
 
@@ -25,10 +26,13 @@ gRPC (`:5000`) is **not** on this map — modules reach Kithara on the internal 
 
 Beak, Cauda, Magpie, Bes, … do **not** get public path prefixes; they talk to Kithara over REST or gRPC as modules.
 
+Older docs called `/player/{slug}` the control UI. Plume MVP **reassigns** `/player` to the listen surface and introduces `/control` for the remote-control desk. There is **no** `/listen` path.
+
 ## Slug in URLs
 
-- Listener: `https://bardie.example/stream/friday-jazz`
-- Control UI: `https://bardie.example/player/friday-jazz`
+- Listener (ICY): `https://bardie.example/stream/friday-jazz`
+- Control desk: `https://bardie.example/control/friday-jazz`
+- Listen / player UI: `https://bardie.example/player/friday-jazz`
 - API uses internal GUID: `/api/streams/{id}/skip`
 
 ## What Kithara owns on the wire
@@ -44,7 +48,7 @@ Long-lived `/stream/{slug}` needs generous proxy read timeouts — see [operatio
 
 | Change | Follow up in |
 |--------|--------------|
-| Path map `/`, `/player/*`, `/api/*`, `/stream/*` | **plume** (UI routes); **org** edge/Compose ([05-deployment](https://github.com/Bardie-radio/.github/blob/main/profile/docs/architecture/05-deployment.md)) |
+| Path map `/`, `/control/*`, `/player/*`, `/api/*`, `/stream/*` | **plume** (UI routes); **org** edge/Compose ([05-deployment](https://github.com/Bardie-radio/.github/blob/main/profile/docs/architecture/05-deployment.md)) |
 | Published ports / service DNS | Org reference Compose — not duplicated here |
 
 **Related:** [operations/deployment.md](../operations/deployment.md) · [auth.md](auth.md) · [ADR 009](../adrs/009-struna-access-and-routing.md) · [org deployment](https://github.com/Bardie-radio/.github/blob/main/profile/docs/architecture/05-deployment.md)

@@ -14,10 +14,10 @@ A **Struna** (stream) is a named broadcast channel managed by **Neck** inside Ki
 | Field | Purpose |
 |-------|---------|
 | `Id` | Internal GUID — API paths, DB, traces |
-| `Slug` | User-chosen URL name — `/stream/{slug}`, `/player/{slug}` |
+| `Slug` | User-chosen URL name — `/stream/{slug}`, `/control/{slug}`, `/player/{slug}` |
 | `Title` | Display name |
 
-**Slug rules:** lowercase alphanumeric + hyphens; unique among **alive** Strunas; HTTP 409 on conflict. Listen URLs live under `/stream/{slug}` — that path prefix already isolates them from `/api/…` and `/player/…`, so we do **not** maintain a reserved-name denylist for route collisions (a Struna may be named `api` or `player`).
+**Slug rules:** lowercase alphanumeric + hyphens; unique among **alive** Strunas; HTTP 409 on conflict. Listen URLs live under `/stream/{slug}` — that path prefix already isolates them from `/api/…`, `/control/…`, and `/player/…`, so we do **not** maintain a reserved-name denylist for route collisions (a Struna may be named `api`, `control`, or `player`).
 
 **Alive from create (two layers):**
 
