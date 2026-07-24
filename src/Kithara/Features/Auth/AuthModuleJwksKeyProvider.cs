@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -7,13 +8,18 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Kithara.Features.Auth;
 
-/// <summary>Resolves signing keys from registered auth-module JWKS (inline JSON or URI).</summary>
+/// <summary>
+/// Resolves signing keys from registered auth-module JWKS (inline JSON or URI).
+/// Snapshot is refreshed asynchronously; the JWT resolver reads the snapshot only (AUTH-JWKS-001).
+/// </summary>
 public sealed class AuthModuleJwksKeyProvider
 {
     private readonly IAuthModuleCatalog _catalog;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IMemoryCache _cache;
     private readonly ILogger<AuthModuleJwksKeyProvider> _logger;
+    private readonly object _snapshotGate = new();
+    private ImmutableArray<SecurityKey> _snapshot = ImmutableArray<SecurityKey>.Empty;
 
     public AuthModuleJwksKeyProvider(
         IAuthModuleCatalog catalog,
@@ -27,7 +33,16 @@ public sealed class AuthModuleJwksKeyProvider
         _logger = logger;
     }
 
-    public async Task<IReadOnlyList<SecurityKey>> GetAllSigningKeysAsync(CancellationToken cancellationToken = default)
+    /// <summary>Sync-safe snapshot for <see cref="TokenValidationParameters.IssuerSigningKeyResolver"/>.</summary>
+    public IReadOnlyList<SecurityKey> GetCachedSigningKeys()
+    {
+        lock (_snapshotGate)
+        {
+            return _snapshot;
+        }
+    }
+
+    public async Task RefreshSnapshotAsync(CancellationToken cancellationToken = default)
     {
         var keys = new List<SecurityKey>();
         foreach (var module in _catalog.List())
@@ -36,7 +51,11 @@ public sealed class AuthModuleJwksKeyProvider
             keys.AddRange(moduleKeys);
         }
 
-        return keys;
+        var snapshot = keys.ToImmutableArray();
+        lock (_snapshotGate)
+        {
+            _snapshot = snapshot;
+        }
     }
 
     private async Task<IReadOnlyList<SecurityKey>> GetKeysForModuleAsync(
@@ -107,5 +126,49 @@ public sealed class AuthModuleJwksKeyProvider
         }
 
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)))[..12];
+    }
+}
+
+/// <summary>Keeps the JWKS signing-key snapshot warm so JWT validation never blocks on async I/O.</summary>
+public sealed class AuthModuleJwksRefreshHostedService : BackgroundService
+{
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(1);
+
+    private readonly AuthModuleJwksKeyProvider _keys;
+    private readonly ILogger<AuthModuleJwksRefreshHostedService> _logger;
+
+    public AuthModuleJwksRefreshHostedService(
+        AuthModuleJwksKeyProvider keys,
+        ILogger<AuthModuleJwksRefreshHostedService> logger)
+    {
+        _keys = keys;
+        _logger = logger;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        await RefreshSafeAsync(stoppingToken).ConfigureAwait(false);
+
+        using var timer = new PeriodicTimer(RefreshInterval);
+        while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
+        {
+            await RefreshSafeAsync(stoppingToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task RefreshSafeAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _keys.RefreshSnapshotAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "JWKS snapshot refresh failed.");
+        }
     }
 }

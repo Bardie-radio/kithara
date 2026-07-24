@@ -1,3 +1,4 @@
+using Kithara.Infrastructure.Neck;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -19,6 +20,7 @@ public static class OpenTelemetryExtensions
                 serviceName: ServiceName,
                 serviceVersion: typeof(OpenTelemetryExtensions).Assembly.GetName().Version?.ToString()))
             .WithTracing(tracing => tracing
+                .AddSource(NeckActivity.Source.Name)
                 .AddAspNetCoreInstrumentation()
                 .AddHttpClientInstrumentation()
                 .AddGrpcClientInstrumentation()

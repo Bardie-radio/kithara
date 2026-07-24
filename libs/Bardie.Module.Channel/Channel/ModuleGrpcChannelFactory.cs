@@ -10,10 +10,12 @@ namespace Bardie.Module.Channel.Channel;
 public interface IModuleGrpcChannelFactory
 {
     /// <summary>
-    /// Dial a peer. When <paramref name="trustRemoteServerCertificate"/> is false (default),
-    /// the remote server cert must chain to the mesh CA. When true, any present server cert is
-    /// accepted — used for host→module work RPCs where modules present a self-signed work-port cert;
-    /// mesh identity is still proven by the client certificate Kithara presents.
+    /// Dial a peer.
+    /// When <paramref name="expectedServerIdentity"/> is set (host→module work dials), the remote
+    /// server cert CN/SAN must match that identity (registered module slug) — MESH-CHN-001 slug pin.
+    /// When unset and <paramref name="trustRemoteServerCertificate"/> is false (default), the remote
+    /// server cert must chain to the mesh CA. When <paramref name="trustRemoteServerCertificate"/> is
+    /// true and no expected identity is set, any present server cert is accepted (legacy / tests).
     /// </summary>
     /// <param name="ownsClientCertificate">
     /// When true, the channel disposes <paramref name="clientCertificate"/> when the channel is disposed
@@ -23,7 +25,8 @@ public interface IModuleGrpcChannelFactory
         string address,
         X509Certificate2? clientCertificate = null,
         bool trustRemoteServerCertificate = false,
-        bool ownsClientCertificate = false);
+        bool ownsClientCertificate = false,
+        string? expectedServerIdentity = null);
 }
 
 public sealed class ModuleGrpcChannelFactory : IModuleGrpcChannelFactory
@@ -43,7 +46,8 @@ public sealed class ModuleGrpcChannelFactory : IModuleGrpcChannelFactory
         string address,
         X509Certificate2? clientCertificate = null,
         bool trustRemoteServerCertificate = false,
-        bool ownsClientCertificate = false)
+        bool ownsClientCertificate = false,
+        string? expectedServerIdentity = null)
     {
         if (!_options.UseMtls)
         {
@@ -54,6 +58,10 @@ public sealed class ModuleGrpcChannelFactory : IModuleGrpcChannelFactory
         {
             throw new InvalidOperationException("TLS material is not loaded. Call EnsureLoadedAsync first.");
         }
+
+        var expected = string.IsNullOrWhiteSpace(expectedServerIdentity)
+            ? null
+            : expectedServerIdentity.Trim();
 
         var sockets = new SocketsHttpHandler
         {
@@ -66,12 +74,19 @@ public sealed class ModuleGrpcChannelFactory : IModuleGrpcChannelFactory
                         return false;
                     }
 
+                    using var presented = new X509Certificate2(cert);
+
+                    // MESH-CHN-001: pin work-port identity to registered module slug (self-signed OK).
+                    if (expected is not null)
+                    {
+                        return CertificateIdentity.Matches(presented, expected);
+                    }
+
                     if (trustRemoteServerCertificate)
                     {
                         return true;
                     }
 
-                    using var presented = new X509Certificate2(cert);
                     return ValidateAgainstCa(presented);
                 },
             },

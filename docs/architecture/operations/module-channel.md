@@ -63,7 +63,7 @@ Loader: `ModuleManifestLoader` + `BuildRegisterRequest(joinSecret, advertiseAddr
 
 ## Bardie capabilities vocabulary (host convention)
 
-Capabilities are **open strings** on the wire. ModuleChannel never interprets them. The tables below are **Bardie host** conventions (Kithara’s Auth Orchestrator gates RPCs on these values via `Bardie.Orchestrator.Auth.WellKnownAuthCapabilities` / `Bardie.Orchestrator.Source.WellKnownSourceCapabilities`) — documented here so module authors see the vocabulary next to Register.
+Capabilities are **open strings** on the wire. ModuleChannel never interprets them. The tables below are **Bardie conventions** shared by source modules and the host (Kithara’s Auth Orchestrator gates via `Bardie.Orchestrator.Auth.WellKnownAuthCapabilities`; source vocabulary lives in `Bardie.Module.Source.WellKnownSourceCapabilities`, used by `SourceModuleBase` and the Source Orchestrator) — documented here so module authors see the vocabulary next to Register.
 
 | Put in `capabilities[]` | Keep elsewhere |
 |-------------------------|----------------|
@@ -79,6 +79,7 @@ Capabilities are **open strings** on the wire. ModuleChannel never interprets th
 | **source** | `search` | Implements `Search`; eligible for `/api/search` fan-out | Magpie yes; Starling typically no |
 | **source** | `play` | Implements `StartTrack` / `StopTrack` (PCM to session FIFO) | Magpie, Starling, Catbird |
 | **source** | `pause` | Implements `PauseTrack` / `ResumeTrack` without tearing down the job | Magpie yes; **Starling omits** |
+| **source** | `prefetch` | Implements `PrefetchTrack` (warm blob cache; no FIFO write) | Magpie yes; Starling/Catbird typically omit |
 | **auth** | `seedAdmin` | Host may call `SeedAdmin` when user DB empty | **Bes yes**; Argus typically **no** |
 
 ### Auth — reserved (document now; advertise only when implemented)

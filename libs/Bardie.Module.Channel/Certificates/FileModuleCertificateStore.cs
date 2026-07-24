@@ -212,8 +212,12 @@ public sealed class FileModuleCertificateStore : IModuleCertificateStore, IDispo
     private X509Certificate2 CreateServerCertificate(X509Certificate2 ca)
     {
         using var rsa = RSA.Create(2048);
+        var cn = _options.ServerDnsNames
+            .Where(static n => !string.IsNullOrWhiteSpace(n))
+            .Select(static n => n.Trim())
+            .FirstOrDefault() ?? "localhost";
         var request = new CertificateRequest(
-            "CN=kithara",
+            $"CN={cn}",
             rsa,
             HashAlgorithmName.SHA256,
             RSASignaturePadding.Pkcs1);
@@ -231,7 +235,10 @@ public sealed class FileModuleCertificateStore : IModuleCertificateStore, IDispo
         var san = new SubjectAlternativeNameBuilder();
         foreach (var dns in _options.ServerDnsNames.Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            san.AddDnsName(dns);
+            if (!string.IsNullOrWhiteSpace(dns))
+            {
+                san.AddDnsName(dns.Trim());
+            }
         }
 
         request.CertificateExtensions.Add(san.Build());

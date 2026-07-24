@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 using Bardie.Orchestrator.Auth.Catalog;
 using Bardie.Orchestrator.Auth.Models;
@@ -24,6 +25,9 @@ public sealed class AuthModuleOrchestrator
     private readonly IModuleCertificateStore _certificateStore;
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthModuleOrchestrator> _logger;
+    /// <summary>AUTH-ORCH-001: discovery <c>provider_id</c> → module slug (filled by <see cref="GetProvidersAsync"/>).</summary>
+    private readonly ConcurrentDictionary<string, string> _providerToModule =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public AuthModuleOrchestrator(
         IAuthModuleCatalog catalog,
@@ -60,7 +64,7 @@ public sealed class AuthModuleOrchestrator
         {
             try
             {
-                using var channel = CreateModuleChannel(module.GrpcAdvertiseAddress);
+                using var channel = CreateModuleChannel(module.GrpcAdvertiseAddress, module.Slug);
                 var client = new AuthAdapter.AuthAdapterClient(channel);
                 var response = await client.GetProvidersAsync(
                         new GetProvidersRequest(),
@@ -69,7 +73,14 @@ public sealed class AuthModuleOrchestrator
 
                 foreach (var provider in response.Providers)
                 {
-                    merged.Add(MapProvider(provider, module.Slug));
+                    var mapped = MapProvider(provider, module.Slug);
+                    // AUTH-ORCH-001: keep provider_id → module map warm for Authenticate/Refresh routing.
+                    if (!string.IsNullOrWhiteSpace(mapped.Id))
+                    {
+                        _providerToModule[mapped.Id] = module.Slug;
+                    }
+
+                    merged.Add(mapped);
                 }
             }
             catch (Exception ex) when (ex is RpcException or InvalidOperationException)
@@ -92,7 +103,7 @@ public sealed class AuthModuleOrchestrator
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(providerId);
 
-        var module = ResolveModuleForProvider(providerId);
+        var module = await ResolveModuleForProviderAsync(providerId, cancellationToken).ConfigureAwait(false);
         if (module is null)
         {
             return new AuthenticateResult(
@@ -122,7 +133,7 @@ public sealed class AuthModuleOrchestrator
             }
         }
 
-        using var channel = CreateModuleChannel(module.GrpcAdvertiseAddress);
+        using var channel = CreateModuleChannel(module.GrpcAdvertiseAddress, module.Slug);
         var client = new AuthAdapter.AuthAdapterClient(channel);
         var request = new AuthenticateRequest
         {
@@ -224,13 +235,13 @@ public sealed class AuthModuleOrchestrator
         ArgumentException.ThrowIfNullOrWhiteSpace(providerId);
         ArgumentException.ThrowIfNullOrWhiteSpace(refreshToken);
 
-        var module = ResolveModuleForProvider(providerId);
+        var module = await ResolveModuleForProviderAsync(providerId, cancellationToken).ConfigureAwait(false);
         if (module is null)
         {
             return new RefreshResult(false, null, null, "Bearer", 0, $"Unknown provider '{providerId}'.");
         }
 
-        using var channel = CreateModuleChannel(module.GrpcAdvertiseAddress);
+        using var channel = CreateModuleChannel(module.GrpcAdvertiseAddress, module.Slug);
         var client = new AuthAdapter.AuthAdapterClient(channel);
 
         try
@@ -281,7 +292,7 @@ public sealed class AuthModuleOrchestrator
             return null;
         }
 
-        using var channel = CreateModuleChannel(module.GrpcAdvertiseAddress);
+        using var channel = CreateModuleChannel(module.GrpcAdvertiseAddress, module.Slug);
         var client = new AuthAdapter.AuthAdapterClient(channel);
 
         SeedAdminResponse response;
@@ -331,8 +342,34 @@ public sealed class AuthModuleOrchestrator
         return new SeedAdminResult(true, response.WelcomeLogText, userId, response.ExternalSubject);
     }
 
+    /// <summary>
+    /// AUTH-ORCH-001: route via discovery <c>provider_id → module</c> map; still pass <c>provider_id</c> on the wire.
+    /// Falls back to slug match, then single-module only when unambiguous.
+    /// </summary>
+    private async Task<AuthModuleRegistration?> ResolveModuleForProviderAsync(
+        string providerId,
+        CancellationToken cancellationToken)
+    {
+        var resolved = ResolveModuleForProvider(providerId);
+        if (resolved is not null)
+        {
+            return resolved;
+        }
+
+        // Warm discovery map once (provider_id may differ from module slug).
+        await GetProvidersAsync(cancellationToken).ConfigureAwait(false);
+        return ResolveModuleForProvider(providerId);
+    }
+
     private AuthModuleRegistration? ResolveModuleForProvider(string providerId)
     {
+        if (_providerToModule.TryGetValue(providerId, out var mappedSlug)
+            && _catalog.TryGet(mappedSlug, out var mapped)
+            && mapped is not null)
+        {
+            return mapped;
+        }
+
         var modules = _catalog.List();
         var exact = modules.FirstOrDefault(m =>
             string.Equals(m.Slug, providerId, StringComparison.OrdinalIgnoreCase));
@@ -367,7 +404,7 @@ public sealed class AuthModuleOrchestrator
             .ToArray();
     }
 
-    private Grpc.Net.Client.GrpcChannel CreateModuleChannel(string advertiseAddress)
+    private Grpc.Net.Client.GrpcChannel CreateModuleChannel(string advertiseAddress, string moduleSlug)
     {
         var address = ModuleParticipantServiceCollectionExtensions.NormalizeGrpcAddress(advertiseAddress);
         if (!_certificateStore.IsLoaded)
@@ -376,11 +413,13 @@ public sealed class AuthModuleOrchestrator
         }
 
         // Short-lived PEM copy for this dial; channel disposes it (never Export Kestrel's ServerCertificate).
+        // MESH-CHN-001: pin work-port server cert CN/SAN to the registered module slug.
         return _channelFactory.CreateChannel(
             address,
             _certificateStore.OpenOutboundClientIdentity(),
-            trustRemoteServerCertificate: true,
-            ownsClientCertificate: true);
+            trustRemoteServerCertificate: false,
+            ownsClientCertificate: true,
+            expectedServerIdentity: moduleSlug);
     }
 
     private static string? ResolveSubjectHint(IReadOnlyDictionary<string, string> payload)

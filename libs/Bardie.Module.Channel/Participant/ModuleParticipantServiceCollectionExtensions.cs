@@ -101,6 +101,13 @@ public static class ModuleParticipantServiceCollectionExtensions
             {
                 options.EnableRegistration = parsed;
             }
+
+            var expectedHost = configuration["MODULE_EXPECTED_HOST_IDENTITY"]
+                ?? configuration["ModuleParticipant:ExpectedHostClientIdentity"];
+            if (!string.IsNullOrWhiteSpace(expectedHost))
+            {
+                options.ExpectedHostClientIdentity = expectedHost.Trim();
+            }
         });
     }
 

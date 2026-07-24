@@ -13,6 +13,10 @@ service SourceModule {
   rpc Search(SearchRequest) returns (SearchResponse);
   rpc StartTrack(StartTrackRequest) returns (StartTrackResponse);
   rpc StopTrack(StopTrackRequest) returns (StopTrackResponse);
+  // Cancels every in-flight job for a Struna (orphan cleanup when host forgot job ids).
+  rpc StopTracksForStruna(StopTracksForStrunaRequest) returns (StopTracksForStrunaResponse);
+  // Warm module blob cache (download + Put) without starting playback — used on queue enqueue.
+  rpc PrefetchTrack(PrefetchTrackRequest) returns (PrefetchTrackResponse);
   rpc PauseTrack(PauseTrackRequest) returns (PauseTrackResponse);
   rpc ResumeTrack(ResumeTrackRequest) returns (ResumeTrackResponse);
   rpc TrackStatus(TrackStatusRequest) returns (stream TrackStatusEvent);
@@ -66,6 +70,25 @@ message StopTrackResponse {
   bool ok = 1;
 }
 
+message StopTracksForStrunaRequest {
+  string struna_id = 1;
+}
+
+message StopTracksForStrunaResponse {
+  bool ok = 1;
+  int32 stopped_count = 2;
+}
+
+message PrefetchTrackRequest {
+  string track_ref = 1;
+}
+
+message PrefetchTrackResponse {
+  bool ok = 1;
+  string external_id = 2;
+  bool from_cache = 3;
+}
+
 message PauseTrackRequest {
   string track_job_id = 1;
 }
@@ -92,6 +115,8 @@ enum TrackState {
   TRACK_STATE_PAUSED = 2;
   TRACK_STATE_ENDED = 3;
   TRACK_STATE_ERROR = 4;
+  // Resolve / download / transcode — no PCM on the session FIFO yet.
+  TRACK_STATE_PREPARING = 5;
 }
 
 message TrackStatusEvent {

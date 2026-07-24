@@ -36,8 +36,12 @@ public sealed class ModuleChannelOptions
     /// <summary>Lifetime for auto-issued module client certificates.</summary>
     public TimeSpan ClientCertificateLifetime { get; set; } = TimeSpan.FromDays(365);
 
-    /// <summary>DNS names embedded in the host server certificate SAN.</summary>
-    public string[] ServerDnsNames { get; set; } = ["kithara", "localhost"];
+    /// <summary>
+    /// DNS names embedded in the host mesh certificate SAN.
+    /// The first entry is also used as the certificate CN (host client identity for work-port dials).
+    /// Host apps must set this to their mesh identity (e.g. Kithara: <c>["kithara", "localhost"]</c>).
+    /// </summary>
+    public string[] ServerDnsNames { get; set; } = ["localhost"];
 
     /// <summary>Adds a method to <see cref="AllowWithoutClientCertificate"/> (idempotent).</summary>
     public ModuleChannelOptions AllowMethodWithoutClientCertificate(string package, string service, string method)

@@ -13,4 +13,13 @@ public sealed class NeckOptions
     /// Example: <c>/fifos</c> → <c>/fifos/strunas/{strunaId}.pcm</c>.
     /// </summary>
     public string StrunaFifoRoot { get; set; } = "data/struna-fifos";
+
+    /// <summary>
+    /// Directory containing libav* shared libraries for FFmpeg.AutoGen (same as Magpie).
+    /// Env: <c>BARDIE_FFMPEG_ROOT</c>. When unset, common system lib paths are probed.
+    /// </summary>
+    public string? FfmpegRootPath { get; set; }
+
+    /// <summary>Operator MP3 bitrate for the locked encode profile (~128 kbps).</summary>
+    public int Mp3BitrateKbps { get; set; } = 128;
 }

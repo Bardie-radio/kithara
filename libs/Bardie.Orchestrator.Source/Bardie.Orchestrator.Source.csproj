@@ -13,6 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Bardie.Contracts\Bardie.Contracts.csproj" />
     <ProjectReference Include="..\Bardie.Module.Channel\Bardie.Module.Channel.csproj" />
+    <ProjectReference Include="..\Bardie.Module.Source\Bardie.Module.Source.csproj" />
   </ItemGroup>
 
   <ItemGroup>

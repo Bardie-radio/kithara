@@ -37,10 +37,11 @@ public class AuthModuleJwtServiceTests
             var (_, refresh, expiresIn) = service.MintTokens("alice", mustRotateCredentials: true, roles: ["admin"]);
             Assert.True(expiresIn > 0);
 
-            var (ok, subject, mustRotate) = service.TryValidateRefresh(refresh);
+            var (ok, subject, mustRotate, roles) = service.TryValidateRefresh(refresh);
             Assert.True(ok);
             Assert.Equal("alice", subject);
             Assert.True(mustRotate);
+            Assert.Contains("admin", roles);
         }
         finally
         {
@@ -55,7 +56,7 @@ public class AuthModuleJwtServiceTests
         try
         {
             var (access, _, _) = service.MintTokens("bob", mustRotateCredentials: false);
-            var (ok, subject, _) = service.TryValidateRefresh(access);
+            var (ok, subject, _, _) = service.TryValidateRefresh(access);
             Assert.False(ok);
             Assert.Null(subject);
         }

@@ -53,5 +53,10 @@ public class AuthOrchestratorScaffoldTests
             string externalSubject,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<AuthUserRecord?>(null);
+
+        public Task<AuthUserRecord?> FindUserByIdAsync(
+            Guid userId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<AuthUserRecord?>(null);
     }
 }

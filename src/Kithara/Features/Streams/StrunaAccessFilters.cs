@@ -29,7 +29,24 @@ internal sealed class StrunaControlFilter : IEndpointFilter
     {
         var denied = await StrunaResourceGate.AuthorizeAsync(
                 context.HttpContext,
-                requireControl: true)
+                requireControl: true,
+                requireOwner: false)
+            .ConfigureAwait(false);
+        return denied ?? await next(context).ConfigureAwait(false);
+    }
+}
+
+/// <summary>Gate: principal is the Struna owner (grant CRUD).</summary>
+internal sealed class StrunaOwnerFilter : IEndpointFilter
+{
+    public async ValueTask<object?> InvokeAsync(
+        EndpointFilterInvocationContext context,
+        EndpointFilterDelegate next)
+    {
+        var denied = await StrunaResourceGate.AuthorizeAsync(
+                context.HttpContext,
+                requireControl: true,
+                requireOwner: true)
             .ConfigureAwait(false);
         return denied ?? await next(context).ConfigureAwait(false);
     }
@@ -44,7 +61,8 @@ internal sealed class StrunaDiscoverFilter : IEndpointFilter
     {
         var denied = await StrunaResourceGate.AuthorizeAsync(
                 context.HttpContext,
-                requireControl: false)
+                requireControl: false,
+                requireOwner: false)
             .ConfigureAwait(false);
         return denied ?? await next(context).ConfigureAwait(false);
     }
@@ -52,7 +70,10 @@ internal sealed class StrunaDiscoverFilter : IEndpointFilter
 
 internal static class StrunaResourceGate
 {
-    public static async Task<IResult?> AuthorizeAsync(HttpContext http, bool requireControl)
+    public static async Task<IResult?> AuthorizeAsync(
+        HttpContext http,
+        bool requireControl,
+        bool requireOwner)
     {
         if (!http.Request.RouteValues.TryGetValue("id", out var raw)
             || !Guid.TryParse(Convert.ToString(raw), out var strunaId))
@@ -92,13 +113,23 @@ internal static class StrunaResourceGate
             return Results.NotFound(new { error = "not_found" });
         }
 
-        var allowed = requireControl
-            ? StrunaAccess.CanControl(struna, principal)
-            : StrunaAccess.CanListen(struna, principal.UserId) || StrunaAccess.CanControl(struna, principal);
-
-        if (!allowed)
+        if (requireOwner)
         {
-            return Results.Forbid();
+            if (struna.OwnerUserId != principal.UserId)
+            {
+                return Results.Forbid();
+            }
+        }
+        else
+        {
+            var allowed = requireControl
+                ? StrunaAccess.CanControl(struna, principal)
+                : StrunaAccess.CanListen(struna, principal.UserId) || StrunaAccess.CanControl(struna, principal);
+
+            if (!allowed)
+            {
+                return Results.Forbid();
+            }
         }
 
         StrunaRequest.SetEntity(http, struna);

@@ -1,6 +1,7 @@
 using Bardie.Library.V1;
 using Bardie.Module.Channel.Hosting;
 using Grpc.Core;
+using Kithara.Infrastructure.Storage;
 
 namespace Kithara.Features.Library;
 
@@ -35,6 +36,25 @@ public sealed class LibraryService : Bardie.Library.V1.Library.LibraryBase
             throw new RpcException(new Status(StatusCode.InvalidArgument, "external_id is required."));
         }
 
+        // LIB-TUNE-001: Tune metadata must not claim another module's blob key.
+        string? storageKey = null;
+        if (!string.IsNullOrWhiteSpace(request.StorageKey))
+        {
+            storageKey = request.StorageKey.Trim();
+            try
+            {
+                BlobKeyLayout.EnsureKeyOwnedBy(storageKey, moduleSlug);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new RpcException(new Status(StatusCode.InvalidArgument, ex.Message));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                throw new RpcException(new Status(StatusCode.PermissionDenied, ex.Message));
+            }
+        }
+
         var result = await _tunes.EnsureTuneAsync(
             new EnsureTuneCommand(
                 ModuleSlug: moduleSlug,
@@ -43,7 +63,7 @@ public sealed class LibraryService : Bardie.Library.V1.Library.LibraryBase
                 Artist: request.Artist,
                 DurationSeconds: request.DurationSeconds > 0 ? request.DurationSeconds : null,
                 ArtworkUrl: request.ArtworkUrl,
-                StorageKey: request.StorageKey,
+                StorageKey: storageKey,
                 ContentType: request.ContentType,
                 SizeBytes: request.SizeBytes > 0 ? request.SizeBytes : null),
             context.CancellationToken).ConfigureAwait(false);

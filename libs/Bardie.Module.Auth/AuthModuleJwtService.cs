@@ -75,7 +75,8 @@ public sealed class AuthModuleJwtService : IDisposable
         var refreshExpires = now.AddDays(Math.Max(1, _options.RefreshTokenDays));
 
         var accessClaims = BuildBaseClaims(subject, AccessTokenUse, mustRotateCredentials, roles);
-        var refreshClaims = BuildBaseClaims(subject, RefreshTokenUse, mustRotateCredentials, roles: null);
+        // Roles travel on refresh too so remint does not invent privileges (AUTH-ROLE-001).
+        var refreshClaims = BuildBaseClaims(subject, RefreshTokenUse, mustRotateCredentials, roles);
 
         var access = CreateToken(accessClaims, now, accessExpires);
         var refresh = CreateToken(refreshClaims, now, refreshExpires);
@@ -83,7 +84,8 @@ public sealed class AuthModuleJwtService : IDisposable
         return (access, refresh, expiresIn);
     }
 
-    public (bool Ok, string? Subject, bool MustRotate) TryValidateRefresh(string refreshToken)
+    public (bool Ok, string? Subject, bool MustRotate, IReadOnlyList<string> Roles) TryValidateRefresh(
+        string refreshToken)
     {
         var parameters = new TokenValidationParameters
         {
@@ -95,6 +97,7 @@ public sealed class AuthModuleJwtService : IDisposable
             IssuerSigningKey = _securityKey,
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(1),
+            RoleClaimType = ClaimTypes.Role,
         };
 
         try
@@ -104,25 +107,30 @@ public sealed class AuthModuleJwtService : IDisposable
             var use = principal.FindFirst(TokenUseClaim)?.Value;
             if (!string.Equals(use, RefreshTokenUse, StringComparison.Ordinal))
             {
-                return (false, null, false);
+                return (false, null, false, []);
             }
 
             var subject = principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
                 ?? principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrWhiteSpace(subject))
             {
-                return (false, null, false);
+                return (false, null, false, []);
             }
 
             var mustRotate = string.Equals(
                 principal.FindFirst(MustRotateClaim)?.Value,
                 "true",
                 StringComparison.OrdinalIgnoreCase);
-            return (true, subject, mustRotate);
+            var roles = principal.FindAll(ClaimTypes.Role)
+                .Select(c => c.Value)
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            return (true, subject, mustRotate, roles);
         }
         catch (SecurityTokenException)
         {
-            return (false, null, false);
+            return (false, null, false, []);
         }
     }
 

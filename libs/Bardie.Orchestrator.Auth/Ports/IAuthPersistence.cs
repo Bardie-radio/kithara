@@ -44,7 +44,8 @@ public sealed record AuthUserRecord(
     string Kind,
     string Status,
     bool MustRotateCredentials,
-    Guid? GuestStrunaId = null);
+    Guid? GuestStrunaId = null,
+    string? ManagedByModuleSlug = null);
 
 public sealed record EnsureUserBindingRequest(
     string ProviderSlug,

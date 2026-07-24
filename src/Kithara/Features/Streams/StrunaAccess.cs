@@ -5,13 +5,12 @@ namespace Kithara.Features.Streams;
 
 /// <summary>
 /// Struna listen / control ACL helpers.
-/// Owner + grant checks are live; managed-ceiling and grant-CRUD deepen later — see Phase 6 comments.
+/// Owner + grant checks; managed ceiling + grant CRUD on Phase 6.
 /// </summary>
 public static class StrunaAccess
 {
     /// <summary>
     /// True when the principal may DJ this Struna (play / queue / skip / pause / delete).
-    /// Full auth on Phase 6: managed permission ceiling, grant management API.
     /// </summary>
     public static bool CanControl(Struna struna, AuthUserRecord principal)
     {
@@ -37,8 +36,7 @@ public static class StrunaAccess
 
     /// <summary>
     /// True when the principal may discover this Struna as listenable via REST.
-    /// Actual <c>/stream/{slug}</c> gates (listen token) are Stream Server / Phase 5.
-    /// Full auth on Phase 6 / Phase 5: private playback session rules; protected listen-token holders.
+    /// Actual <c>/stream/{slug}</c> gates (listen token) are Stream Server.
     /// </summary>
     public static bool CanListen(Struna struna, Guid principalUserId) =>
         struna.PlaybackAccess switch

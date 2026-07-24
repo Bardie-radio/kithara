@@ -1,6 +1,7 @@
 using Bardie.Module.Channel;
 using Bardie.Module.Channel.Certificates;
 using Bardie.Module.Channel.Channel;
+using Bardie.Module.Source;
 using Bardie.Orchestrator.Source;
 using Bardie.Orchestrator.Source.Catalog;
 using Bardie.Orchestrator.Source.Ports;
@@ -106,6 +107,31 @@ public class SourceOrchestratorDialTests
     }
 
     [Fact]
+    public async Task PrefetchTrackAsync_fails_when_module_lacks_prefetch()
+    {
+        var orch = CreateOrchestrator(catalog =>
+        {
+            catalog.Upsert(new SourceModuleRegistration
+            {
+                Slug = "magpie",
+                GrpcAdvertiseAddress = "https://magpie:5001",
+                Capabilities =
+                [
+                    WellKnownSourceCapabilities.Search,
+                    WellKnownSourceCapabilities.Play,
+                ],
+                RegisteredAt = DateTimeOffset.UtcNow,
+                LastHeartbeatAt = DateTimeOffset.UtcNow,
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5),
+            });
+        });
+
+        var result = await orch.PrefetchTrackAsync("magpie", "ref-1");
+        Assert.False(result.Ok);
+        Assert.Contains("prefetch", result.FailureReason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void OrderPlayableSources_honours_BARDIE_SOURCE_PRIORITY()
     {
         var config = new PriorityConfiguration("catbird,magpie");
@@ -183,7 +209,8 @@ public class SourceOrchestratorDialTests
             string address,
             System.Security.Cryptography.X509Certificates.X509Certificate2? clientCertificate = null,
             bool trustRemoteServerCertificate = false,
-            bool ownsClientCertificate = false) =>
+            bool ownsClientCertificate = false,
+            string? expectedServerIdentity = null) =>
             throw new InvalidOperationException("Dial not expected in capability-gate unit tests.");
     }
 

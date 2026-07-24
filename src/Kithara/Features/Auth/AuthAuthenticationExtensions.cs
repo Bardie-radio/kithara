@@ -18,7 +18,7 @@ public sealed class GuestJwtOptions
 }
 
 /// <summary>
-/// Loads or auto-generates the ephemeral-guest JWT signing key (mint unused until Phase 6).
+/// Loads or auto-generates the ephemeral-guest JWT signing key.
 /// </summary>
 public sealed class GuestJwtSigningKeyStore
 {
@@ -115,6 +115,7 @@ public static class AuthAuthenticationServiceCollectionExtensions
         services.AddSingleton<GuestJwtSigningKeyStore>();
         services.AddSingleton<GuestJwtService>();
         services.AddSingleton<AuthModuleJwksKeyProvider>();
+        services.AddHostedService<AuthModuleJwksRefreshHostedService>();
         services.AddMemoryCache();
         services.AddHttpClient(nameof(AuthModuleJwksKeyProvider));
 
@@ -156,15 +157,9 @@ public static class AuthAuthenticationServiceCollectionExtensions
         services.AddOptions<JwtBearerOptions>(LoginBearerScheme)
             .Configure<AuthModuleJwksKeyProvider, GuestJwtSigningKeyStore>((options, keyProvider, guestKeys) =>
             {
+                // AUTH-JWKS-001: resolver reads the pre-warmed snapshot only — never GetResult().
                 options.TokenValidationParameters.IssuerSigningKeyResolver =
-                    (_, _, _, _) =>
-                    {
-                        var moduleKeys = keyProvider.GetAllSigningKeysAsync(CancellationToken.None)
-                            .ConfigureAwait(false)
-                            .GetAwaiter()
-                            .GetResult();
-                        return moduleKeys.Append(guestKeys.GetSigningKey());
-                    };
+                    (_, _, _, _) => keyProvider.GetCachedSigningKeys().Append(guestKeys.GetSigningKey());
             });
 
         services.AddAuthorization();

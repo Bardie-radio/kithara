@@ -16,6 +16,8 @@ service SourceModule {
   rpc Search(SearchRequest) returns (SearchResponse);
   rpc StartTrack(StartTrackRequest) returns (StartTrackResponse);
   rpc StopTrack(StopTrackRequest) returns (StopTrackResponse);
+  rpc StopTracksForStruna(StopTracksForStrunaRequest) returns (StopTracksForStrunaResponse);
+  rpc PrefetchTrack(PrefetchTrackRequest) returns (PrefetchTrackResponse);
   rpc PauseTrack(PauseTrackRequest) returns (PauseTrackResponse);
   rpc ResumeTrack(ResumeTrackRequest) returns (ResumeTrackResponse);
   rpc TrackStatus(TrackStatusRequest) returns (stream TrackStatusEvent);
@@ -24,6 +26,10 @@ service SourceModule {
 
 `PauseTrack` / `ResumeTrack` are part of the **common** contract. Modules that cannot pause (e.g. Starling) omit the `pause` capability at Registry `Register` and return a clear error if called. Magpie **does** advertise and implement pause.
 
+`PrefetchTrack` is likewise capability-gated (`prefetch`). Modules without cache warmup omit it; the host skips dialing when the capability is absent. Magpie advertises `prefetch`.
+
+`StopTracksForStruna` cancels every in-flight job for a Struna (orphan cleanup when the host forgot job ids). `StartTrack` on Magpie also cancels sibling jobs for the same Struna before registering a new one.
+
 ## Capabilities (Registry)
 
 Advertised at Module Registry `Register` — not inventing source-type labels:
@@ -31,8 +37,9 @@ Advertised at Module Registry `Register` — not inventing source-type labels:
 | Capability | Meaning |
 |------------|---------|
 | `search` | Implements `Search` |
-| `play` | Implements `StartTrack` / `StopTrack` |
+| `play` | Implements `StartTrack` / `StopTrack` / `StopTracksForStruna` |
 | `pause` | Implements `PauseTrack` / `ResumeTrack` without tearing down the job |
+| `prefetch` | Implements `PrefetchTrack` (warm blob cache; no FIFO write) |
 
 ## Key messages
 
@@ -61,12 +68,32 @@ message StartTrackResponse {
   string track_job_id = 1;
 }
 
+message StopTracksForStrunaRequest {
+  string struna_id = 1;
+}
+
+message StopTracksForStrunaResponse {
+  bool ok = 1;
+  int32 stopped_count = 2;
+}
+
+message PrefetchTrackRequest {
+  string track_ref = 1;
+}
+
+message PrefetchTrackResponse {
+  bool ok = 1;
+  string external_id = 2;
+  bool from_cache = 3;
+}
+
 enum TrackState {
   TRACK_STATE_UNSPECIFIED = 0;
   TRACK_STATE_RUNNING = 1;
   TRACK_STATE_PAUSED = 2;
   TRACK_STATE_ENDED = 3;
   TRACK_STATE_ERROR = 4;
+  TRACK_STATE_PREPARING = 5;  // resolve/download/transcode; no FIFO PCM yet
 }
 
 message TrackStatusEvent {
@@ -82,14 +109,15 @@ Invariants (frozen for v0.1):
 
 1. **Kithara dials** the module advertise address for each work RPC (no long-lived command stream).
 2. **`audio_endpoint`** is a Kithara-created path on the shared audio volume — modules write PCM; they do not own the listen side.
-3. **Capabilities** gate which RPCs the host may call; omit `pause` → reject pause/resume.
+3. **Capabilities** gate which RPCs the host may call; omit `pause` → reject pause/resume; omit `prefetch` → host skips / module rejects `PrefetchTrack`.
 
 ## Audio requirements
 
 - Write **canonical PCM** (MVP: s16le / 48 kHz / stereo) to the session endpoint Kithara created
 - Do not own the listen side; Neck/FFmpeg reads it for the Struna life
 - Endpoint lives on the **shared Compose volume**; path is passed in `StartTrack` — see [ADR 004](../adrs/004-source-instance-socket-audio-plane.md)
-- Informal prewarm allowed; no MVP `PrepareTrack` RPC
+- **`PrefetchTrack`**: warm blob cache on enqueue (no FIFO write); `StartTrack` still owns session PCM
+- Informal prewarm allowed in addition to `PrefetchTrack`
 
 ## Blob + library handshake
 

@@ -5,14 +5,12 @@ using Grpc.Core;
 namespace Bardie.Module.Source;
 
 /// <summary>
-/// Thin SourceModule base: health, pause capability gate, default Stop/Pause/Resume/TrackStatus
+/// Thin SourceModule base: health, pause/prefetch capability gates, default Stop/Pause/Resume/TrackStatus
 /// against <see cref="ITrackJobRegistry"/>, and job-not-found helpers.
 /// Concrete Search / StartTrack stay in the module.
 /// </summary>
 public abstract class SourceModuleBase : SourceModule.SourceModuleBase
 {
-    public const string PauseCapability = "pause";
-
     private readonly ITrackJobRegistry? _jobs;
 
     protected ModuleManifest Manifest { get; }
@@ -32,21 +30,46 @@ public abstract class SourceModuleBase : SourceModule.SourceModuleBase
     public override Task<StopTrackResponse> StopTrack(StopTrackRequest request, ServerCallContext context)
     {
         var jobs = RequireJobs();
-        if (!jobs.TryStop(request.TrackJobId))
+        // Idempotent: job may already be gone after natural end, sibling replace, or StopTracksForStruna.
+        jobs.TryStop(request.TrackJobId);
+        return Task.FromResult(new StopTrackResponse { Ok = true });
+    }
+
+    public override Task<StopTracksForStrunaResponse> StopTracksForStruna(
+        StopTracksForStrunaRequest request,
+        ServerCallContext context)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.StrunaId);
+        var jobs = RequireJobs();
+        var stopped = jobs.TryStopAllForStruna(request.StrunaId);
+        return Task.FromResult(new StopTracksForStrunaResponse
         {
-            throw JobNotFound(request.TrackJobId);
+            Ok = true,
+            StoppedCount = stopped,
+        });
+    }
+
+    public override Task<PrefetchTrackResponse> PrefetchTrack(
+        PrefetchTrackRequest request,
+        ServerCallContext context)
+    {
+        if (!HasCapability(WellKnownSourceCapabilities.Prefetch))
+        {
+            throw new RpcException(new Status(
+                StatusCode.FailedPrecondition,
+                $"Module '{Manifest.Slug}' does not advertise '{WellKnownSourceCapabilities.Prefetch}'."));
         }
 
-        return Task.FromResult(new StopTrackResponse { Ok = true });
+        return PrefetchTrackCoreAsync(request, context);
     }
 
     public override Task<PauseTrackResponse> PauseTrack(PauseTrackRequest request, ServerCallContext context)
     {
-        if (!HasCapability(PauseCapability))
+        if (!HasCapability(WellKnownSourceCapabilities.Pause))
         {
             throw new RpcException(new Status(
                 StatusCode.FailedPrecondition,
-                $"Module '{Manifest.Slug}' does not advertise '{PauseCapability}'."));
+                $"Module '{Manifest.Slug}' does not advertise '{WellKnownSourceCapabilities.Pause}'."));
         }
 
         return PauseTrackCoreAsync(request, context);
@@ -54,11 +77,11 @@ public abstract class SourceModuleBase : SourceModule.SourceModuleBase
 
     public override Task<ResumeTrackResponse> ResumeTrack(ResumeTrackRequest request, ServerCallContext context)
     {
-        if (!HasCapability(PauseCapability))
+        if (!HasCapability(WellKnownSourceCapabilities.Pause))
         {
             throw new RpcException(new Status(
                 StatusCode.FailedPrecondition,
-                $"Module '{Manifest.Slug}' does not advertise '{PauseCapability}'."));
+                $"Module '{Manifest.Slug}' does not advertise '{WellKnownSourceCapabilities.Pause}'."));
         }
 
         return ResumeTrackCoreAsync(request, context);
@@ -76,6 +99,14 @@ public abstract class SourceModuleBase : SourceModule.SourceModuleBase
             responseStream,
             context.CancellationToken);
     }
+
+    /// <summary>Override when the module advertises <c>prefetch</c>.</summary>
+    protected virtual Task<PrefetchTrackResponse> PrefetchTrackCoreAsync(
+        PrefetchTrackRequest request,
+        ServerCallContext context) =>
+        throw new RpcException(new Status(
+            StatusCode.Unimplemented,
+            $"Module '{Manifest.Slug}' does not implement PrefetchTrack."));
 
     /// <summary>Override when the module advertises <c>pause</c> but does not use the shared registry.</summary>
     protected virtual Task<PauseTrackResponse> PauseTrackCoreAsync(

@@ -122,6 +122,25 @@ public sealed class ModuleRegistryOperations
         }
 
         var capabilities = request.Capabilities.ToArray();
+        string? clientAuthMode = null;
+        IReadOnlyList<string> permissionCeiling = [];
+        if (string.Equals(kind, WellKnownModuleKinds.Client, StringComparison.OrdinalIgnoreCase)
+            && request.Client is not null)
+        {
+            clientAuthMode = string.IsNullOrWhiteSpace(request.Client.AuthMode)
+                ? null
+                : request.Client.AuthMode.Trim().ToLowerInvariant();
+            if (string.Equals(clientAuthMode, "static", StringComparison.Ordinal)
+                && request.Client.PermissionCeiling.Count > 0)
+            {
+                permissionCeiling = request.Client.PermissionCeiling
+                    .Where(p => !string.IsNullOrWhiteSpace(p))
+                    .Select(p => p.Trim().ToLowerInvariant())
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray();
+            }
+        }
+
         _registry.Upsert(new ModuleRegistrationRecord
         {
             Slug = slug,
@@ -131,6 +150,8 @@ public sealed class ModuleRegistryOperations
             RegisteredAt = now,
             LastHeartbeatAt = now,
             ExpiresAt = expiresAt,
+            ClientAuthMode = clientAuthMode,
+            PermissionCeiling = permissionCeiling,
         });
 
         ProjectToOrchestratorCatalogs(request, slug, kind, capabilities, now, expiresAt);
@@ -244,6 +265,7 @@ public sealed class ModuleRegistryOperations
                 break;
 
             case WellKnownModuleKinds.Client:
+                // Ceiling lives on ModuleRegistrationRecord (Upsert above); no orch catalog for clients.
                 break;
 
             default:

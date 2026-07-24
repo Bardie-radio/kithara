@@ -61,6 +61,92 @@ public sealed class GuestJwtService
         return (user.Id, access, refresh, expiresIn);
     }
 
+    /// <summary>
+    /// Validates a Kithara-minted guest refresh token and remints access+refresh while the
+    /// ephemeral guest user and Struna still exist (GUEST-REF-001).
+    /// </summary>
+    public async Task<(string AccessToken, string RefreshToken, long ExpiresIn)?> TryRefreshAsync(
+        string refreshToken,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(refreshToken);
+
+        if (!TryValidateRefreshToken(refreshToken, out var userId, out var strunaId))
+        {
+            return null;
+        }
+
+        await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        var user = await db.Users.AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken)
+            .ConfigureAwait(false);
+        if (user is null
+            || user.Kind != UserKind.EphemeralGuest
+            || user.GuestStrunaId != strunaId)
+        {
+            return null;
+        }
+
+        var strunaExists = await db.Strunas.AsNoTracking()
+            .AnyAsync(s => s.Id == strunaId, cancellationToken)
+            .ConfigureAwait(false);
+        if (!strunaExists)
+        {
+            return null;
+        }
+
+        return MintTokens(userId, strunaId);
+    }
+
+    private bool TryValidateRefreshToken(string refreshToken, out Guid userId, out Guid strunaId)
+    {
+        userId = Guid.Empty;
+        strunaId = Guid.Empty;
+
+        var parameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = _options.Issuer,
+            ValidateAudience = true,
+            ValidAudience = _options.Audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = _keys.GetSigningKey(),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromMinutes(1),
+        };
+
+        try
+        {
+            var handler = new JwtSecurityTokenHandler();
+            var principal = handler.ValidateToken(refreshToken, parameters, out _);
+            var use = principal.FindFirst("token_use")?.Value;
+            if (!string.Equals(use, "refresh", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var provider = principal.FindFirst("bardie_provider")?.Value;
+            if (!string.Equals(provider, ProviderClaimValue, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var subject = principal.FindFirst("sub")?.Value
+                ?? principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var strunaClaim = principal.FindFirst(GuestStrunaClaim)?.Value;
+            if (!Guid.TryParse(subject, out userId) || !Guid.TryParse(strunaClaim, out strunaId))
+            {
+                return false;
+            }
+
+            return true;
+        }
+        catch (SecurityTokenException)
+        {
+            return false;
+        }
+    }
+
     private (string Access, string Refresh, long ExpiresIn) MintTokens(Guid userId, Guid strunaId)
     {
         var key = _keys.GetSigningKey();

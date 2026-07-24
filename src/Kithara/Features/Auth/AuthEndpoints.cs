@@ -79,11 +79,33 @@ public static class AuthEndpoints
     private static async Task<IResult> RefreshAsync(
         [FromBody] RefreshRequestBody body,
         AuthModuleOrchestrator orch,
+        GuestJwtService guests,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(body.ProviderId) || string.IsNullOrWhiteSpace(body.RefreshToken))
         {
             return Results.BadRequest(new { error = "provider_id and refresh_token are required." });
+        }
+
+        // GUEST-REF-001: host-minted guest refresh — do not dial auth modules.
+        if (string.Equals(body.ProviderId, GuestJwtService.ProviderClaimValue, StringComparison.Ordinal))
+        {
+            var reminted = await guests.TryRefreshAsync(body.RefreshToken, ct).ConfigureAwait(false);
+            if (reminted is null)
+            {
+                return Results.Json(
+                    new { error = "unauthorized" },
+                    statusCode: StatusCodes.Status401Unauthorized);
+            }
+
+            var (access, refresh, expiresIn) = reminted.Value;
+            return Results.Ok(new
+            {
+                access_token = access,
+                refresh_token = refresh,
+                token_type = "Bearer",
+                expires_in = expiresIn,
+            });
         }
 
         var result = await orch.RefreshAsync(body.ProviderId, body.RefreshToken, ct).ConfigureAwait(false);

@@ -73,11 +73,8 @@ public sealed class EfAuthPersistence : IAuthPersistence
             binding.PayloadJson = string.IsNullOrWhiteSpace(request.PayloadJson)
                 ? binding.PayloadJson
                 : request.PayloadJson;
-            // Escalate only — never clear rotate-on-login until a password-change path exists.
-            if (request.MustRotateCredentials)
-            {
-                binding.User.MustRotateCredentials = true;
-            }
+            // Sync rotate flag from adapter (SeedAdmin escalates; password-change clears — AUTH-ROT-001).
+            binding.User.MustRotateCredentials = request.MustRotateCredentials;
 
             if (request.Roles is { Count: > 0 })
             {
@@ -140,7 +137,8 @@ public sealed class EfAuthPersistence : IAuthPersistence
             binding.User.Kind.ToString(),
             binding.User.Status,
             binding.User.MustRotateCredentials,
-            binding.User.GuestStrunaId);
+            binding.User.GuestStrunaId,
+            binding.User.ManagedByModuleSlug);
     }
 
     public async Task<AuthUserRecord?> FindUserByIdAsync(
@@ -161,6 +159,7 @@ public sealed class EfAuthPersistence : IAuthPersistence
             user.Kind.ToString(),
             user.Status,
             user.MustRotateCredentials,
-            user.GuestStrunaId);
+            user.GuestStrunaId,
+            user.ManagedByModuleSlug);
     }
 }

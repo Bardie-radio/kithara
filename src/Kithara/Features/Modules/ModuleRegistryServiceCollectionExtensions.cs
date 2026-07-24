@@ -1,6 +1,6 @@
 using Bardie.Module.Channel.Hosting;
 using Kithara.Features.Library;
-using Kithara.Features.Modules;
+using Kithara.Features.Streams;
 using Kithara.Infrastructure.Storage;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -25,6 +25,7 @@ public static class ModuleRegistryServiceCollectionExtensions
 
         services.AddSingleton<InMemoryModuleRegistry>();
         services.AddSingleton<ModuleRegistryOperations>();
+        services.AddSingleton<ManagedPermissionGate>();
         services.AddHostedService<ModuleRegistryJanitor>();
         services.AddGrpc(options =>
         {

@@ -12,6 +12,12 @@ public sealed class ModuleRegistrationRecord
     public DateTimeOffset RegisteredAt { get; init; }
     public DateTimeOffset LastHeartbeatAt { get; init; }
     public DateTimeOffset ExpiresAt { get; init; }
+
+    /// <summary>Client modules only: <c>user-aware</c> | <c>static</c>.</summary>
+    public string? ClientAuthMode { get; init; }
+
+    /// <summary>Static client modules: max rights for managed users (e.g. <c>create_struna</c>).</summary>
+    public IReadOnlyList<string> PermissionCeiling { get; init; } = [];
 }
 
 /// <summary>In-memory Module Registry with heartbeat TTL (Phase 1).</summary>
@@ -45,6 +51,8 @@ public sealed class InMemoryModuleRegistry
             RegisteredAt = existing.RegisteredAt,
             LastHeartbeatAt = lastHeartbeatAt,
             ExpiresAt = expiresAt,
+            ClientAuthMode = existing.ClientAuthMode,
+            PermissionCeiling = existing.PermissionCeiling,
         };
     }
 
