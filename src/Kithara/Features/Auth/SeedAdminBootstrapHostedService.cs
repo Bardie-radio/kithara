@@ -1,5 +1,5 @@
-using Bardie.Orchestrator.Auth;
-using Bardie.Orchestrator.Auth.Models;
+using Bardie.Harness.Auth;
+using Bardie.Harness.Auth.Models;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -11,14 +11,14 @@ namespace Kithara.Features.Auth;
 /// </summary>
 public sealed class SeedAdminBootstrapHostedService : BackgroundService
 {
-    private readonly AuthModuleOrchestrator _orchestrator;
+    private readonly AuthModuleHarness _harness;
     private readonly ILogger<SeedAdminBootstrapHostedService> _logger;
 
     public SeedAdminBootstrapHostedService(
-        AuthModuleOrchestrator orchestrator,
+        AuthModuleHarness harness,
         ILogger<SeedAdminBootstrapHostedService> logger)
     {
-        _orchestrator = orchestrator;
+        _harness = harness;
         _logger = logger;
     }
 
@@ -40,13 +40,13 @@ public sealed class SeedAdminBootstrapHostedService : BackgroundService
             attempt++;
             try
             {
-                if (await _orchestrator.Persistence.HasAnyUsersAsync(stoppingToken).ConfigureAwait(false))
+                if (await _harness.Persistence.HasAnyUsersAsync(stoppingToken).ConfigureAwait(false))
                 {
                     _logger.LogDebug("User DB is not empty; seedAdmin bootstrap skipped.");
                     return;
                 }
 
-                var result = await _orchestrator.TrySeedAdminAsync(stoppingToken).ConfigureAwait(false);
+                var result = await _harness.TrySeedAdminAsync(stoppingToken).ConfigureAwait(false);
                 if (result is { Created: true })
                 {
                     LogWelcome(result);

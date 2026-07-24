@@ -4,7 +4,7 @@
 flowchart LR
   Client -->|user JWT guest JWT or per-user creds| API["/api/*"]
   API --> Neck
-  API --> AuthOrch[Auth Orchestrator]
+  API --> AuthHarness[Auth Harness]
 ```
 
 Client-facing HTTP API on Kithara (any client module). Base path: `/api`.

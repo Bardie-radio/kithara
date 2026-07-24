@@ -22,14 +22,14 @@ Kithara is the main instrument of the Bardie ecosystem. It exposes a REST API fo
 
 📖 **[Architecture documentation](docs/architecture/README.md)** — design decisions, domain model, API contracts, and ADRs.
 
-Kithara sits at the center of Bardie. **Client modules**, **source modules**, and **auth adapters** all connect to it; Kithara owns stream lifecycle, auth orchestration, and audio output.
+Kithara sits at the center of Bardie. **Client modules**, **source modules**, and **auth adapters** all connect to it; Kithara owns stream lifecycle, auth harnesses, and audio output.
 
 ### 🎼 Core responsibilities
 
 - **Struna management** — create, configure, and tear down synchronized streams
 - **Playback control** — play, skip, stop, and queue tunes via source instances
 - **Neck service** — stream lifecycle: module coordination, FFmpeg encoding, listener fan-out
-- **Auth orchestration** — delegates login and permissions to auth adapter modules
+- **Auth harness** — delegates login and permissions to auth adapter modules
 
 ### 🔌 Modular components
 

@@ -27,8 +27,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Kithara\Kithara.csproj" />
     <ProjectReference Include="..\..\libs\Bardie.Module.Channel\Bardie.Module.Channel.csproj" />
-    <ProjectReference Include="..\..\libs\Bardie.Orchestrator.Auth\Bardie.Orchestrator.Auth.csproj" />
-    <ProjectReference Include="..\..\libs\Bardie.Orchestrator.Source\Bardie.Orchestrator.Source.csproj" />
+    <ProjectReference Include="..\..\libs\Bardie.Harness.Auth\Bardie.Harness.Auth.csproj" />
+    <ProjectReference Include="..\..\libs\Bardie.Harness.Source\Bardie.Harness.Source.csproj" />
   </ItemGroup>
 
 </Project>

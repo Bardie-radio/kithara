@@ -1,6 +1,6 @@
 using System.Security.Claims;
-using Bardie.Orchestrator.Auth;
-using Bardie.Orchestrator.Auth.Ports;
+using Bardie.Harness.Auth;
+using Bardie.Harness.Auth.Ports;
 
 namespace Kithara.Features.Auth;
 
@@ -36,7 +36,7 @@ public static class AuthPrincipal
     public static async Task<AuthUserRecord?> ResolveAsync(
         ClaimsPrincipal user,
         IAuthPersistence persistence,
-        AuthModuleOrchestrator authOrch,
+        AuthModuleHarness authHarness,
         CancellationToken ct)
     {
         var subject = user.FindFirstValue("sub") ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -52,7 +52,7 @@ public static class AuthPrincipal
             return await persistence.FindUserByIdAsync(guestId, ct).ConfigureAwait(false);
         }
 
-        provider ??= authOrch.ListRegisteredModules().FirstOrDefault()?.Slug;
+        provider ??= authHarness.ListRegisteredModules().FirstOrDefault()?.Slug;
         if (string.IsNullOrWhiteSpace(provider))
         {
             return null;
@@ -79,11 +79,11 @@ public sealed class RequirePrincipalFilter : IEndpointFilter
         }
 
         var persistence = http.RequestServices.GetRequiredService<IAuthPersistence>();
-        var authOrch = http.RequestServices.GetRequiredService<AuthModuleOrchestrator>();
+        var authHarness = http.RequestServices.GetRequiredService<AuthModuleHarness>();
         var principal = await AuthPrincipal.ResolveAsync(
                 http.User,
                 persistence,
-                authOrch,
+                authHarness,
                 http.RequestAborted)
             .ConfigureAwait(false);
 

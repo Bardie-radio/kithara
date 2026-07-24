@@ -1,9 +1,9 @@
-using Bardie.Orchestrator.Auth;
+using Bardie.Harness.Auth;
 using Bardie.Module.Channel;
 using Bardie.Module.Channel.Certificates;
 using Bardie.Modules.V1;
-using Bardie.Orchestrator.Source;
-using Bardie.Orchestrator.Source.Catalog;
+using Bardie.Harness.Source;
+using Bardie.Harness.Source.Catalog;
 using Grpc.Core;
 using Kithara.Features.Modules;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,7 +33,7 @@ public class ModuleRegistryOperationsTests
 
         var ops = provider.GetRequiredService<ModuleRegistryOperations>();
         var sourceCatalog = provider.GetRequiredService<ISourceModuleCatalog>();
-        var authCatalog = provider.GetRequiredService<Bardie.Orchestrator.Auth.Catalog.IAuthModuleCatalog>();
+        var authCatalog = provider.GetRequiredService<Bardie.Harness.Auth.Catalog.IAuthModuleCatalog>();
         var registry = provider.GetRequiredService<InMemoryModuleRegistry>();
 
         var response = ops.Register(new RegisterRequest
@@ -80,7 +80,7 @@ public class ModuleRegistryOperationsTests
         Assert.True(store.TryGetPresharedClientExpiry("bes", out _));
 
         var ops = provider.GetRequiredService<ModuleRegistryOperations>();
-        var authCatalog = provider.GetRequiredService<Bardie.Orchestrator.Auth.Catalog.IAuthModuleCatalog>();
+        var authCatalog = provider.GetRequiredService<Bardie.Harness.Auth.Catalog.IAuthModuleCatalog>();
 
         var response = ops.Register(new RegisterRequest
         {
@@ -171,7 +171,7 @@ public class ModuleRegistryOperationsTests
 
         var ops = provider.GetRequiredService<ModuleRegistryOperations>();
         var sourceCatalog = provider.GetRequiredService<ISourceModuleCatalog>();
-        var authCatalog = provider.GetRequiredService<Bardie.Orchestrator.Auth.Catalog.IAuthModuleCatalog>();
+        var authCatalog = provider.GetRequiredService<Bardie.Harness.Auth.Catalog.IAuthModuleCatalog>();
         var registry = provider.GetRequiredService<InMemoryModuleRegistry>();
 
         ops.Register(new RegisterRequest
@@ -207,8 +207,8 @@ public class ModuleRegistryOperationsTests
                 options.PresharedDir = presharedPath;
             }
         });
-        services.AddAuthModuleOrchestrator();
-        services.AddSourceModuleOrchestrator();
+        services.AddAuthModuleHarness();
+        services.AddSourceModuleHarness();
         services.AddSingleton<InMemoryModuleRegistry>();
         services.Configure<ModuleRegistryOptions>(o =>
         {

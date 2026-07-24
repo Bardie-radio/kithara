@@ -3,8 +3,8 @@ using Kithara.Features.Auth;
 using Kithara.Features.Streams;
 using Kithara.Infrastructure.Neck;
 using Kithara.Infrastructure.Persistence.Entities;
-using Bardie.Orchestrator.Auth;
-using Bardie.Orchestrator.Auth.Ports;
+using Bardie.Harness.Auth;
+using Bardie.Harness.Auth.Ports;
 
 namespace Kithara.Features.Streaming;
 
@@ -30,7 +30,7 @@ public static class StreamEndpoints
         Neck neck,
         StrunaEncoderSupervisor encoder,
         IAuthPersistence persistence,
-        AuthModuleOrchestrator authOrch,
+        AuthModuleHarness authHarness,
         CancellationToken ct)
     {
         var struna = await neck.GetStrunaBySlugAsync(slug, ct).ConfigureAwait(false);
@@ -41,7 +41,7 @@ public static class StreamEndpoints
             return;
         }
 
-        if (!await AuthorizePlaybackAsync(http, struna, persistence, authOrch, ct).ConfigureAwait(false))
+        if (!await AuthorizePlaybackAsync(http, struna, persistence, authHarness, ct).ConfigureAwait(false))
         {
             return;
         }
@@ -88,7 +88,7 @@ public static class StreamEndpoints
         HttpContext http,
         Struna struna,
         IAuthPersistence persistence,
-        AuthModuleOrchestrator authOrch,
+        AuthModuleHarness authHarness,
         CancellationToken ct)
     {
         switch (struna.PlaybackAccess)
@@ -121,7 +121,7 @@ public static class StreamEndpoints
                     return false;
                 }
 
-                var principal = await AuthPrincipal.ResolveAsync(http.User, persistence, authOrch, ct)
+                var principal = await AuthPrincipal.ResolveAsync(http.User, persistence, authHarness, ct)
                     .ConfigureAwait(false);
                 if (principal is null || !StrunaAccess.CanListen(struna, principal.UserId))
                 {

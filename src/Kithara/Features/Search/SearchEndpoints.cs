@@ -1,5 +1,5 @@
 using System.Text.Json.Serialization;
-using Bardie.Orchestrator.Auth;
+using Bardie.Harness.Auth;
 using Kithara.Features.Auth;
 using Microsoft.AspNetCore.Mvc;
 

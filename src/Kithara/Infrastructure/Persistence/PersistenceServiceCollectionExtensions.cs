@@ -1,5 +1,5 @@
-using Bardie.Orchestrator.Auth.Ports;
-using Bardie.Orchestrator.Source.Ports;
+using Bardie.Harness.Auth.Ports;
+using Bardie.Harness.Source.Ports;
 using Kithara.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 

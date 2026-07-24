@@ -21,9 +21,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Module.Hosting", "li
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Module.Auth", "libs\Bardie.Module.Auth\Bardie.Module.Auth.csproj", "{B100000C-0000-4000-8000-00000000000C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Orchestrator.Auth", "libs\Bardie.Orchestrator.Auth\Bardie.Orchestrator.Auth.csproj", "{B1000004-0000-4000-8000-000000000004}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Harness.Auth", "libs\Bardie.Harness.Auth\Bardie.Harness.Auth.csproj", "{B1000004-0000-4000-8000-000000000004}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Orchestrator.Source", "libs\Bardie.Orchestrator.Source\Bardie.Orchestrator.Source.csproj", "{B1000005-0000-4000-8000-000000000005}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Harness.Source", "libs\Bardie.Harness.Source\Bardie.Harness.Source.csproj", "{B1000005-0000-4000-8000-000000000005}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Module.Channel.Tests", "tests\Bardie.Module.Channel.Tests\Bardie.Module.Channel.Tests.csproj", "{B1000006-0000-4000-8000-000000000006}"
 EndProject
@@ -31,9 +31,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Module.Hosting.Tests
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Module.Auth.Tests", "tests\Bardie.Module.Auth.Tests\Bardie.Module.Auth.Tests.csproj", "{B100000E-0000-4000-8000-00000000000E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Orchestrator.Auth.Tests", "tests\Bardie.Orchestrator.Auth.Tests\Bardie.Orchestrator.Auth.Tests.csproj", "{B1000007-0000-4000-8000-000000000007}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Harness.Auth.Tests", "tests\Bardie.Harness.Auth.Tests\Bardie.Harness.Auth.Tests.csproj", "{B1000007-0000-4000-8000-000000000007}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Orchestrator.Source.Tests", "tests\Bardie.Orchestrator.Source.Tests\Bardie.Orchestrator.Source.Tests.csproj", "{B1000008-0000-4000-8000-000000000008}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Harness.Source.Tests", "tests\Bardie.Harness.Source.Tests\Bardie.Harness.Source.Tests.csproj", "{B1000008-0000-4000-8000-000000000008}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kithara.Tests", "tests\Kithara.Tests\Kithara.Tests.csproj", "{B1000009-0000-4000-8000-000000000009}"
 EndProject

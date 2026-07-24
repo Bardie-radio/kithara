@@ -77,10 +77,10 @@ message HeartbeatResponse {
 
 | Kind value | Who defines it | Kithara Phase 1 behaviour |
 |------------|----------------|---------------------------|
-| `source` | Bardie well-known (`WellKnownModuleKinds`) | Upsert source orch catalog; use `details.source` when present |
-| `auth` | Bardie well-known | Upsert auth orch catalog; use `details.auth` when present |
+| `source` | Bardie well-known (`WellKnownModuleKinds`) | Upsert source harness catalog; use `details.source` when present |
+| `auth` | Bardie well-known | Upsert auth harness catalog; use `details.auth` when present |
 | `client` | Bardie well-known | Registry only |
-| any other non-empty string | Host / external project | **Register + Heartbeat still succeed**; no orch catalog projection |
+| any other non-empty string | Host / external project | **Register + Heartbeat still succeed**; no harness catalog projection |
 
 Other hosts can reuse the same join RPC + ModuleChannel and map their own kind strings (or ignore `oneof details`). Bardie-shaped `oneof` branches stay optional typed bags for well-known kinds — they are not a closed taxonomy of the mesh.
 

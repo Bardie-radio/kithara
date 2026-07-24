@@ -39,7 +39,7 @@ Capabilities are **optional feature flags within kind `auth`**. They gate host R
 | `selfRegister` | Reserved | Open signup via `Authenticate` (e.g. Bes “register” form) without operator seed — advertise only when implemented |
 | `passwordReset` | Reserved | Host/UI can expose reset; module owns ceremony in the opaque `Authenticate` bag — advertise only when implemented |
 
-**Not a module capability:** account linking stays **Kithara’s story** (explicit multi-provider link in the user DB / orchestrator). Auth adapters only prove identity for their provider — they do not advertise `accountLink`.
+**Not a module capability:** account linking stays **Kithara’s story** (explicit multi-provider link in the user DB / harness). Auth adapters only prove identity for their provider — they do not advertise `accountLink`.
 
 **Bes** advertises `seedAdmin` only for MVP (`module.manifest.json`). **Argus** typically does **not** — IdP users are discovered/linked, not locally invented.
 

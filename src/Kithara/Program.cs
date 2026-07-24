@@ -1,9 +1,9 @@
 using System.Threading.RateLimiting;
-using Bardie.Orchestrator.Auth;
+using Bardie.Harness.Auth;
 using Bardie.Module.Channel;
 using Bardie.Module.Channel.Certificates;
 using Bardie.Module.Channel.Hosting;
-using Bardie.Orchestrator.Source;
+using Bardie.Harness.Source;
 using Kithara.Features.Auth;
 using Kithara.Features.Library;
 using Kithara.Features.Modules;
@@ -27,8 +27,8 @@ builder.WebHost.ConfigureKestrel(options => options.ConfigureBardieModuleListene
 builder.AddKitharaOpenTelemetry();
 
 builder.Services.AddModuleChannel(builder.Configuration);
-builder.Services.AddAuthModuleOrchestrator(registerModuleChannel: false);
-builder.Services.AddSourceModuleOrchestrator(registerModuleChannel: false);
+builder.Services.AddAuthModuleHarness(registerModuleChannel: false);
+builder.Services.AddSourceModuleHarness(registerModuleChannel: false);
 
 builder.Services.AddKitharaDb(builder.Configuration);
 builder.Services.AddKitharaBlobStorage(builder.Configuration);

@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Bardie.Harness.Source</RootNamespace>
+    <AssemblyName>Bardie.Harness.Source</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <PackageId>Bardie.Harness.Source</PackageId>
+    <Version>0.1.0</Version>
+    <Description>Source module harness library for Bardie hosts.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Bardie.Contracts\Bardie.Contracts.csproj" />
+    <ProjectReference Include="..\Bardie.Module.Channel\Bardie.Module.Channel.csproj" />
+    <ProjectReference Include="..\Bardie.Module.Source\Bardie.Module.Source.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

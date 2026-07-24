@@ -3,7 +3,7 @@ namespace Bardie.Module.Source;
 /// <summary>
 /// Shared Bardie vocabulary for source-module <c>RegisterRequest.capabilities</c>.
 /// Mesh contract treats capabilities as open strings; ModuleChannel does not interpret them.
-/// Modules gate optional RPCs here; the Source Orchestrator gates host dials on the same values.
+/// Modules gate optional RPCs here; the Source Harness gates host dials on the same values.
 /// </summary>
 public static class WellKnownSourceCapabilities
 {

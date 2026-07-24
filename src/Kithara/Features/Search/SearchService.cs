@@ -1,6 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Bardie.Orchestrator.Source;
+using Bardie.Harness.Source;
 using Kithara.Infrastructure.Persistence;
 using Kithara.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -49,13 +49,13 @@ public sealed class SearchService
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
-    private readonly SourceModuleOrchestrator _orch;
+    private readonly SourceModuleHarness _orch;
     private readonly IDbContextFactory<KitharaDbContext> _dbFactory;
     private readonly SearchCacheOptions _options;
     private readonly ILogger<SearchService> _logger;
 
     public SearchService(
-        SourceModuleOrchestrator orch,
+        SourceModuleHarness orch,
         IDbContextFactory<KitharaDbContext> dbFactory,
         IOptions<SearchCacheOptions> options,
         ILogger<SearchService> logger)

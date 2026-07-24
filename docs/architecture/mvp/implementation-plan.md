@@ -16,13 +16,13 @@ Kithara must not care **which** auth, source, or UI module is connected — only
 | **One contract per module type**      | Source → `SourceModule` gRPC; Auth → `AuthModule` gRPC; Client → `ClientModule` gRPC + REST `/api` for UX; **all** kinds join via Module Registry gRPC |
 | **Opaque payloads at the edge**       | Clients never call Bes/Magpie; Kithara routes bags and verifies tokens                                                                                 |
 | **Identity by slug + join secret**    | Module swap = Compose + secret map, not Kithara code changes                                                                                           |
-| **Orchestrators as libraries**        | Auth module orch + source module orch are **library-shaped** (host ports for persistence / storage / Bardie extras). Kithara is one host; outside reuse is planned — [org 07](https://github.com/Bardie-radio/.github/blob/main/profile/docs/architecture/07-modules-beyond-bardie.md) |
+| **Harnesses as libraries**        | Auth module harness + source module harness are **library-shaped** (host ports for persistence / storage / Bardie extras). Kithara is one host; outside reuse is planned — [org 07](https://github.com/Bardie-radio/.github/blob/main/profile/docs/architecture/07-modules-beyond-bardie.md) |
 | **Spike code is not the model**       | Follow docs/ADRs over `Neck.cs` / prototype `Tune`/`Playlist` shapes                                                                                   |
 | **Freeze the socket before the guts** | Lock proto/REST sketches enough to implement both sides, then fill behaviour                                                                           |
 | **OTel from day one**                 | Wire OpenTelemetry in `Program.cs` / module entrypoints in **Phase 1** — not a Phase 8 afterthought. Auto-instrument HTTP/gRPC/EF; custom spans only where middleware is blind (Neck, FIFO, FFmpeg). |
 
 
-If a feature requires Magpie to know Bes exists (or Plume to know Magpie’s ytdl quirks), the design is wrong — put the knowledge in Kithara’s orchestrators or in the shared contract.
+If a feature requires Magpie to know Bes exists (or Plume to know Magpie’s ytdl quirks), the design is wrong — put the knowledge in Kithara’s harnesses or in the shared contract.
 
 ```mermaid
 flowchart TB
@@ -34,7 +34,7 @@ flowchart TB
   subgraph kithara_core [Kithara vertical slices]
     Skeleton[Skeleton + persistence]
     Registry[Module Registry]
-    AuthOrch[Auth Orchestrator]
+    AuthHarness[Auth Harness]
     Neck[Neck + FIFO + FFmpeg]
     Stream[Stream Server ICY]
   end
@@ -50,8 +50,8 @@ flowchart TB
   REST --> Plume
   Data --> Skeleton
   Skeleton --> Registry
-  Registry --> AuthOrch
-  AuthOrch --> Bes
+  Registry --> AuthHarness
+  AuthHarness --> Bes
   Registry --> Neck
   Neck --> Magpie
   Neck --> Stream
@@ -71,7 +71,7 @@ Next shipping focus: **Phase 7 (Plume)** and **Phase 8 (Compose + verify)**.
 
 | Area    | Today                                                          | Later                                            |
 | ------- | -------------------------------------------------------------- | ------------------------------------------------ |
-| Layout  | Feature folders + packable Module.* / Orchestrator.* / Contracts | Plume (7); Compose E2E (8)                       |
+| Layout  | Feature folders + packable Module.* / Harness.* / Contracts | Plume (7); Compose E2E (8)                       |
 | Models  | ADR 006 EF entities + migrations + grant CRUD                  | —                                                |
 | Auth    | Orch + Bes + JWT + guest refresh + AUTH/GUEST-* (soft residuals → 8)  | Host rotate gate / lockout polish (8)            |
 | Audio   | Encode-alive: silence + FFmpeg + Magpie PCM + ICY `/stream`    | Continuity polish / NECK-JOB-001 (8)             |
@@ -86,11 +86,11 @@ Phases are **dependency-ordered** for *shipping* outcomes. Phases 4–6 ran in p
 | Phase | Name             | Outcome                                                               | Status |
 | ----- | ---------------- | --------------------------------------------------------------------- | ------ |
 | **1** | Kithara skeleton | Feature layout, DB, Module Registry, join secrets, **OTel bootstrap** | Complete |
-| **2** | Auth vertical | Orchestrator + Bes + JWT verify + bootstrap user path | Complete |
+| **2** | Auth vertical | Harness + Bes + JWT verify + bootstrap user path | Complete |
 | **3** | Source vertical | Source protocol + Magpie proof (`Search` / `StartTrack` / FIFO write) | Complete |
 | **4** | Neck + encode | Alive Struna, silence feeder, FFmpeg supervisor + **Channel peer pin (MESH-CHN-001)** | Complete |
 | **5** | Stream Server | `GET /stream/{slug}` ICY + listen-token gate | Complete |
-| **6** | Control REST + auth hardening | Remaining control depth + **security P0/P1** + orch routing (AUTH-ORCH-001) | Complete |
+| **6** | Control REST + auth hardening | Remaining control depth + **security P0/P1** + harness routing (AUTH-ORCH-001) | Complete |
 | **7** | Plume MVP | Discovery login + control UI (optional client) | **Next** |
 | **8** | Compose + verify | Reference stack, join secrets, OTLP E2E, **QA/OPS/DOC debt** | After 7 (or parallel) |
 
@@ -108,7 +108,7 @@ Phase 7 needs Phase 2 + enough of 5–6 (now available). Phase 8 needs MVP apps 
 | AUTH-JWKS-001 | Security P1 | JWKS sync-over-async | **6** |
 | GUEST-XCHG-001 | Security P1 | Guest exchange rate-limit | **6** |
 | MESH-CHN-001 | Security P1 | Channel host↔slug mTLS pin | **4** |
-| AUTH-ORCH-001 | Design/debt | Auth orch: `provider_id`→module from discovery (still pass `provider_id` on wire) | **6** |
+| AUTH-ORCH-001 | Design/debt | Auth harness: `provider_id`→module from discovery (still pass `provider_id` on wire) | **6** |
 | NECK-JOB-002 | Design/debt | Wire `TrackStatus` / recover jobs; Neck in-memory map | **4** |
 | META-QA-001 | QA | Host integration tests; Magpie/Bes module-local tests | **8** (+ land tests with 4–6 PRs) |
 | META-OPS-001 | Ops | Phase3 sine smoke vs Magpie Release image | **8** |
@@ -172,13 +172,13 @@ Same contract on Bes/Magpie/Plume from their first runnable container ([ADR 008]
 
 ## Phase 1 — Kithara skeleton
 
-**Status: complete.** Dual listeners, Module Registry, `Bardie.Module.Channel` mTLS (`auto` \| `preshared`), orch lib scaffolds, ADR-006 EF, OTel `bardie.kithara`.
+**Status: complete.** Dual listeners, Module Registry, `Bardie.Module.Channel` mTLS (`auto` \| `preshared`), harness lib scaffolds, ADR-006 EF, OTel `bardie.kithara`.
 
 **Why:** Everything else hangs off registry, persistence, HTTP/gRPC hosts, and telemetry plumbing.
 
 ### Work
 
-1. **Feature-first layout** under `src/Kithara` + packable `libs/` (Orchestrator.Auth/Source, Module.Channel/Hosting/Auth) — see [02-internal-structure](../overview/02-internal-structure.md) and [module-channel](../operations/module-channel.md):
+1. **Feature-first layout** under `src/Kithara` + packable `libs/` (Harness.Auth/Source, Module.Channel/Hosting/Auth) — see [02-internal-structure](../overview/02-internal-structure.md) and [module-channel](../operations/module-channel.md):
 
 ```text
 src/Kithara/
@@ -192,21 +192,21 @@ libs/
   Bardie.Module.Channel/
   Bardie.Module.Hosting/
   Bardie.Module.Auth/
-  Bardie.Orchestrator.Auth/
-  Bardie.Orchestrator.Source/
+  Bardie.Harness.Auth/
+  Bardie.Harness.Source/
 ```
 
 2. Config: `DbProvider` / `DbConnectionString`, `BARDIE_JOIN_SECRETS`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `BARDIE_MODULE_MTLS_BOOTSTRAP`, `BARDIE_GRPC_TLS_*` ([configuration](../operations/configuration.md)).
 3. **OpenTelemetry bootstrap** in `Program.cs`: OTLP exporter, `service.name=bardie.kithara`, ASP.NET + gRPC + HttpClient + EF auto-instrumentation; W3C propagation on. Safe when collector is absent.
 4. EF migrations for core tables (ADR 006 shapes).
-5. **Module Registry** service: `Register` authenticated by **join secret**; issues client certs in `auto` mode (or confirms preshared material); **Heartbeat authenticated by mTLS** (not join secret). Track slug, capabilities, advertise address, JWKS (auth), search schema (sources); project AUTH/SOURCE into orch catalogs. Registry RPCs appear as spans once gRPC instrumentation is on.
+5. **Module Registry** service: `Register` authenticated by **join secret**; issues client certs in `auto` mode (or confirms preshared material); **Heartbeat authenticated by mTLS** (not join secret). Track slug, capabilities, advertise address, JWKS (auth), search schema (sources); project AUTH/SOURCE into harness catalogs. Registry RPCs appear as spans once gRPC instrumentation is on.
 6. Dual listeners: HTTP `:8080`, gRPC HTTPS `:5000` (internal) via `Bardie.Module.Channel` helpers.
 7. Health/readiness endpoints suitable for Compose.
 
 ### Exit criteria
 
 - Empty Kithara boots with SQLite.
-- A dummy module can register with a join secret and appear in registry state (and orch catalog for AUTH/SOURCE).
+- A dummy module can register with a join secret and appear in registry state (and harness catalog for AUTH/SOURCE).
 - With a collector configured, a health or register request produces a trace for `bardie.kithara`.
 - No playlist-centric API.
 
@@ -217,15 +217,15 @@ libs/
 
 
 
-## Phase 2 — Auth vertical (Bes + Orchestrator)
+## Phase 2 — Auth vertical (Bes + Harness)
 
-**Status: complete.** Contracts package + Auth Orchestrator + Bes + JWT verify + bootstrap `seedAdmin`.
+**Status: complete.** Contracts package + Auth Harness + Bes + JWT verify + bootstrap `seedAdmin`.
 
 **Why:** Control APIs need a verified identity. Auth stays behind Kithara (BFF).
 
 ### Work (Kithara)
 
-1. Auth Orchestrator: merge `GetProviders`, route opaque `Authenticate` / `Refresh`, persist `User` + `UserAuthBinding` when `ensure_user`.
+1. Auth Harness: merge `GetProviders`, route opaque `Authenticate` / `Refresh`, persist `User` + `UserAuthBinding` when `ensure_user`.
 2. JWT Bearer middleware: verify **user** JWTs via registered module JWKS (cache JWKS).
 3. REST: `/api/auth/discovery`, `/authenticate`, `/refresh` ([auth](../interfaces/auth.md)).
 4. Guest JWT signing: env key if set, else auto-generate + persist; mint path used in Phase 6.
@@ -269,8 +269,8 @@ libs/
 
 ### Work (Kithara)
 
-1. Registry dials module advertise address for `Search` / `StartTrack` / `StopTrack` / `TrackStatus` — **done** (`Bardie.Orchestrator.Source` real dials + capability gates).
-2. Temporary **dev harness**: create a session FIFO path, call Magpie `StartTrack`, verify PCM bytes appear (even before Stream Server) — REST create/play + Local `scripts/phase3-source-smoke.sh`.
+1. Registry dials module advertise address for `Search` / `StartTrack` / `StopTrack` / `TrackStatus` — **done** (`Bardie.Harness.Source` real dials + capability gates).
+2. Temporary **FIFO smoke**: create a session FIFO path, call Magpie `StartTrack`, verify PCM bytes appear (even before Stream Server) — REST create/play + Local `scripts/phase3-source-smoke.sh`.
 3. Storage interface MVP: local driver + opaque keys under `tunes/<source_slug>/…`; Magpie put/get via `BlobStorage` — **done**.
 4. Library write path: Magpie dials `Library.EnsureTune` after Put on cache miss (Kithara owns EF upsert) — **done**.
 5. **Phase 6 control REST (landed under Phase 3, no FFmpeg then):** search + principal **search cache**; Struna create/get/delete; `/listen` + `/control` lists; play/quickplay/pause/skip/now-playing; queue/quickqueue; guest exchange. Encode-alive + silence landed in Phase 4.
@@ -368,7 +368,7 @@ libs/
 
 ## Phase 6 — Control REST complete + auth hardening
 
-**Status: complete.** Grant CRUD, permission ceiling, pause-as-silence + empty play unpause, now-playing aligned with ICY, AUTH/GUEST/LIB product remediations, AUTH-ORCH-001 orch routing. Soft residuals (host rotate deny, guest failure lockout) → Phase 8 — see [security-audit](security-audit.md).
+**Status: complete.** Grant CRUD, permission ceiling, pause-as-silence + empty play unpause, now-playing aligned with ICY, AUTH/GUEST/LIB product remediations, AUTH-ORCH-001 harness routing. Soft residuals (host rotate deny, guest failure lockout) → Phase 8 — see [security-audit](security-audit.md).
 
 **Why:** Clients (Plume or raw HTTP) need a trustworthy DJ surface — not just verbs that work.
 
@@ -402,9 +402,9 @@ libs/
 | **AUTH-JWKS-001** | **Done** — async JWKS snapshot |
 | **GUEST-XCHG-001** | **Partial** — 10/min rate limit; failure lockout → Phase 8 (GUEST-XCHG-002) |
 
-### Closed in Phase 6 — orch routing
+### Closed in Phase 6 — harness routing
 
-4. **AUTH-ORCH-001:** Auth Orchestrator `provider_id → module` map — **done**.
+4. **AUTH-ORCH-001:** Auth Harness `provider_id → module` map — **done**.
 
 
 
@@ -482,9 +482,9 @@ Use this when slicing PRs:
 
 1. Solution layout + DI + config + **OTel bootstrap** + DB migrations
 2. Module Registry (join secret) + gRPC host (spans via auto-instrumentation)
-3. Auth Orchestrator + JWT verify + auth REST
+3. Auth Harness + JWT verify + auth REST
 4. Library/Tune + local storage driver
-5. Source client (dial Magpie) + FIFO harness (+ custom spans on attach)
+5. Source client (dial Magpie) + FIFO smoke (+ custom spans on attach)
 6. Neck supervisor + silence + FFmpeg (+ custom spans on lifecycle)
 7. Stream Server + listen ACL
 8. Remaining stream control REST + guest JWT

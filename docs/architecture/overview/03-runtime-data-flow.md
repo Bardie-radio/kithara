@@ -19,7 +19,7 @@ flowchart TB
 
   subgraph kithara [Kithara]
     API[REST API]
-    AuthOrch[Auth Orchestrator]
+    AuthHarness[Auth Harness]
     Registry[Module Registry]
     Neck[Neck]
     Silence[Silence feeder]
@@ -32,12 +32,12 @@ flowchart TB
   Players -->|ICY /stream| StreamSrv
   UI -.->|optional listen| StreamSrv
 
-  API --> AuthOrch
+  API --> AuthHarness
   API --> Neck
   API --> DB
-  AuthOrch --> DB
+  AuthHarness --> DB
   Neck --> DB
-  AuthOrch --> Registry
+  AuthHarness --> Registry
   Neck --> Registry
   Neck --> Silence
   Silence --> FIFO
@@ -45,7 +45,7 @@ flowchart TB
   FIFO --> Encoder
   Encoder -->|encoded pipe| StreamSrv
 
-  AuthOrch <-->|gRPC Authenticate Refresh| Auth
+  AuthHarness <-->|gRPC Authenticate Refresh| Auth
   Auth -.->|optional adapter hop| IdP
   UI -.->|browser redirect| IdP
   IdP -.->|OIDC callback| API
@@ -64,8 +64,8 @@ flowchart TB
 
 | Plane | Path | Data |
 |-------|------|------|
-| **Control** | UI → REST API → Neck / Auth Orchestrator → Module Registry → module gRPC | Play, queue, discovery, authenticate, refresh |
-| **Persistence** | API / Auth Orchestrator / Neck → Database | Users, bindings, Struna metadata, library refs |
+| **Control** | UI → REST API → Neck / Auth Harness → Module Registry → module gRPC | Play, queue, discovery, authenticate, refresh |
+| **Persistence** | API / Auth Harness / Neck → Database | Users, bindings, Struna metadata, library refs |
 | **Audio** | Source → session FIFO → Encoder → **Stream Server** → listeners | Canonical PCM in; ICY / encoded audio out |
 | **Telemetry** | Every box → OTel collector | Traces, metrics, logs (OTLP) |
 

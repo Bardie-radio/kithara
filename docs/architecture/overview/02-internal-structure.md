@@ -10,7 +10,7 @@ flowchart TB
   subgraph kithara [Kithara]
     API[REST API]
     StreamSrv[Stream Server]
-    AuthOrch[Auth Orchestrator]
+    AuthHarness[Auth Harness]
     Registry[Module Registry]
     Neck[Neck Service]
     Silence[Silence feeder]
@@ -23,11 +23,11 @@ flowchart TB
   HTTP --> API
   HTTP --> StreamSrv
   GRPC --> Registry
-  API --> AuthOrch
+  API --> AuthHarness
   API --> Neck
   API --> Persist
-  AuthOrch --> Registry
-  AuthOrch --> Persist
+  AuthHarness --> Registry
+  AuthHarness --> Persist
   Neck --> Registry
   Neck --> Silence
   Silence --> FIFO
@@ -45,31 +45,31 @@ How **Kithara** is structured inside one process. Ecosystem layout (Plume, modul
 |-----------|----------------|
 | **REST API** | Client-facing control: Struna lifecycle, play/skip/queue, auth discovery/authenticate |
 | **Stream Server** | `GET /stream/{slug}` — ICY-over-HTTP listener fan-out |
-| **Auth Orchestrator** | Discovery, identity routing, login JWT verify (JWKS), guest-code exchange + ephemeral guest users, `seedAdmin`, refresh proxy to modules, join secrets, listen checks. **Shape as a library with host ports** (user/binding persistence); Bardie-only extras (guests, join secrets, REST BFF) wrap the library — [org 07](https://github.com/Bardie-radio/.github/blob/main/profile/docs/architecture/07-modules-beyond-bardie.md) |
+| **Auth Harness** | Discovery, identity routing, login JWT verify (JWKS), guest-code exchange + ephemeral guest users, `seedAdmin`, refresh proxy to modules, join secrets, listen checks. **Shape as a library with host ports** (user/binding persistence); Bardie-only extras (guests, join secrets, REST BFF) wrap the library — [org 07](https://github.com/Bardie-radio/.github/blob/main/profile/docs/architecture/07-modules-beyond-bardie.md) |
 | **Module Registry** | Source + auth + client module register / heartbeat (modules dial Kithara; join secret) |
-| **Neck Service** | Alive Struna lifecycle, session FIFOs, silence feeder, `StartTrack`/`StopTrack`, wire encoders to Stream Server. **Source search / download routing** should live in a **source module orchestrator** library Neck/API call into — not buried only in REST handlers |
+| **Neck Service** | Alive Struna lifecycle, session FIFOs, silence feeder, `StartTrack`/`StopTrack`, wire encoders to Stream Server. **Source search / download routing** should live in a **source module harness** library Neck/API call into — not buried only in REST handlers |
 | **Silence feeder** | Keeps FFmpeg fed when no module writer is attached |
 | **Struna Encoder** | Per-alive-Struna FFmpeg; reads session FIFO for Struna life |
 | **Persistence** | Users + bindings, Struna metadata, library/Tune refs (SQLite or Postgres) |
 
 ## Solution layout
 
-Root buckets: `src/` (host + DummyRegistrar), `libs/` (packable Contracts + Module.* + Orchestrator.*), `tests/`, `docs/`. Prefer **feature-first** folders and Minimal APIs ([aspnet team rules](../../../.cursor/rules/aspnet.mdc) in repo):
+Root buckets: `src/` (host + DummyRegistrar), `libs/` (packable Contracts + Module.* + Harness.*), `tests/`, `docs/`. Prefer **feature-first** folders and Minimal APIs ([aspnet team rules](../../../.cursor/rules/aspnet.mdc) in repo):
 
 ```text
 src/Kithara/
   Features/
     Streams/      # REST + handlers
-    Auth/         # Bardie host wrappers around auth orch (guests, REST BFF)
+    Auth/         # Bardie host wrappers around auth harness (guests, REST BFF)
     Modules/      # registry gRPC (modules dial in)
     Streaming/    # Stream Server, ICY
     Library/      # Tune metadata + storage keys
-    Search/       # source orch wrappers + principal-scoped result cache
+    Search/       # source harness wrappers + principal-scoped result cache
   Infrastructure/
-    Persistence/  # EF, IDbContextFactory — implements orch host ports
+    Persistence/  # EF, IDbContextFactory — implements harness host ports
     Observability/# OTel registration (service.name=bardie.kithara)
     Neck/         # hosted FFmpeg supervisor + session FIFO + silence
-    Storage/      # blob drivers (local MVP) — backing store for source orch storage API
+    Storage/      # blob drivers (local MVP) — backing store for source harness storage API
 libs/
   Bardie.Contracts/           # packable protos (ModuleRegistry, AuthAdapter, …)
   Bardie.Module.Channel/      # mTLS + manifest + participant/host dial helpers
@@ -77,8 +77,8 @@ libs/
   Bardie.Module.Auth/         # JWT mint / JWKS Register helpers for auth adapters
   Bardie.Module.Source/       # SourceModule base, FIFO sink, job registry, host dial clients
   Bardie.Module.Source.Debug/ # opt-in sine FIFO/protocol smoke (Debug / test refs only)
-  Bardie.Orchestrator.Auth/
-  Bardie.Orchestrator.Source/
+  Bardie.Harness.Auth/
+  Bardie.Harness.Source/
 ```
 
 FFmpeg child processes **outlive HTTP requests** — own them with a hosted background supervisor, not a request-scoped service alone.
@@ -99,7 +99,7 @@ HTTP is for clients/listeners (API + streams). Module control never rides the pu
 | Client modules (Plume, bots, …) | REST API |
 | Legacy players | Stream Server |
 | Source modules | Registry + FIFO write path |
-| External auth adapters | Auth Orchestrator via Registry |
+| External auth adapters | Auth Harness via Registry |
 | Edge reverse proxy | HTTP port only (`/api`, `/stream`; OIDC callback on Kithara) |
 
 Container ports, mounts, and edge wiring: [operations/deployment](../operations/deployment.md).

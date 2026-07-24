@@ -13,7 +13,7 @@ Depends on [`Bardie.Contracts`](../Bardie.Contracts/README.md) for `RegisterRequ
 | CA + server cert load/generate + persist | Host: `BARDIE_GRPC_TLS_DATA_PATH` / `TlsDataPath` |
 | Issue module client certs | Host bootstrap mode **`auto`** |
 | Validate inbound client cert → slug | Heartbeat + privileged RPCs |
-| Outbound `GrpcChannel` helpers | Host orchestrators dial modules |
+| Outbound `GrpcChannel` helpers | Host harnesses dial modules |
 | Kestrel bind helper | Host HTTPS `:5000` + allow client certificates |
 | Bootstrap interceptor | Register may omit client cert; other RPCs require it |
 | **`ModuleManifest`** | Static identity loader + `BuildRegisterRequest` |
@@ -39,7 +39,7 @@ services.AddModuleChannel(options =>
 });
 ```
 
-`AddAuthModuleOrchestrator()` / `AddSourceModuleOrchestrator()` call this with mTLS on by default.
+`AddAuthModuleHarness()` / `AddSourceModuleHarness()` call this with mTLS on by default.
 
 ### mTLS exemptions (bootstrap RPCs)
 

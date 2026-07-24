@@ -30,7 +30,8 @@ Dual naming: **codename** (musical instruments theme) + **plain English**. When 
 | **Argus** | OIDC auth adapter | v0.2: IdP redirect/code exchange, IdP tokens / OIDC session pieces |
 | **Hecate** | Passkeys auth adapter | Future: WebAuthn / passkey ceremonies |
 | **Auth adapter / provider** | Auth provider | Separate container (Bes, Argus, Hecate, …); issues/forwards JWT + refresh; Kithara verifies + user DB |
-| **Auth orchestrator** | Auth router | Discovery merge, opaque Authenticate/Refresh routing, login JWT verify (JWKS), guest-code exchange + ephemeral guest user/JWT mint, `seedAdmin`, join secrets |
+| **Auth harness** | Auth router | Discovery merge, opaque Authenticate/Refresh routing, login JWT verify (JWKS), guest-code exchange + ephemeral guest user/JWT mint, `seedAdmin`, join secrets |
+| **Source harness** | Source router | Catalog lookup, capability-gated dials (`Search` / `StartTrack` / …), host port for blob storage |
 | **UserAuthBinding** | Provider binding | `(user, provider_slug)` row + payload in Kithara DB |
 | **Durable user** | Full account | Normal login user with auth-module binding(s); survives Struna teardown |
 | **Managed user** | Module-owned account | Persistent `User` owned by a **static** client (e.g. one per Discord guild); long-lived, not Struna-scoped |

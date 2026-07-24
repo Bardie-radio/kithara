@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
-using Bardie.Orchestrator.Auth.Ports;
-using Bardie.Orchestrator.Source;
+using Bardie.Harness.Auth.Ports;
+using Bardie.Harness.Source;
 using Kithara.Features.Auth;
 using Kithara.Features.Library;
 using Kithara.Features.Search;
@@ -180,7 +180,7 @@ public static class StrunaEndpoints
         HttpContext http,
         Neck neck,
         SearchService search,
-        SourceModuleOrchestrator orch,
+        SourceModuleHarness orch,
         CancellationToken ct)
     {
         var query = body.Q ?? body.Query ?? string.Empty;
@@ -304,7 +304,7 @@ public static class StrunaEndpoints
         Neck neck,
         SearchService search,
         TuneLibrary tunes,
-        SourceModuleOrchestrator orch,
+        SourceModuleHarness orch,
         CancellationToken ct)
     {
         var query = body.Q ?? body.Query ?? string.Empty;
@@ -465,7 +465,7 @@ public static class StrunaEndpoints
         string query,
         string? module,
         SearchService search,
-        SourceModuleOrchestrator orch,
+        SourceModuleHarness orch,
         CancellationToken ct)
     {
         var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
