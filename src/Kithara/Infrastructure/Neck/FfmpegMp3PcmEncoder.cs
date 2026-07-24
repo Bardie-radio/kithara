@@ -133,15 +133,48 @@ public sealed class FfmpegMp3PcmEncoder : IAsyncDisposable
             _logger.LogDebug(ex, "MP3 encoder ended for Struna {Id}", _strunaId);
         }
 
-        _fanout.Complete();
+        // Fan-out completes only on StrunaEncodeSession dispose — keep listeners across loop restarts.
         _cts.Dispose();
     }
 
     private void RunUnsafe(string slug, CancellationToken cancellationToken)
     {
-        unsafe
+        const int maxRestarts = 8;
+        for (var attempt = 1; attempt <= maxRestarts && !cancellationToken.IsCancellationRequested; attempt++)
         {
-            Run(slug, cancellationToken);
+            try
+            {
+                unsafe
+                {
+                    Run(slug, cancellationToken);
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+
+                _logger.LogError(
+                    ex,
+                    "MP3 encoder crashed for Struna {Id} (attempt {Attempt}/{Max})",
+                    _strunaId,
+                    attempt,
+                    maxRestarts);
+            }
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                break;
+            }
+
+            _logger.LogWarning(
+                "MP3 encoder loop ended for Struna {Id}; restarting (attempt {Attempt}/{Max})",
+                _strunaId,
+                attempt,
+                maxRestarts);
+            Thread.Sleep(200);
         }
     }
 
@@ -284,7 +317,7 @@ public sealed class FfmpegMp3PcmEncoder : IAsyncDisposable
                 ffmpeg.avcodec_free_context(&c);
             }
 
-            _fanout.Complete();
+            // Do not Complete fan-out here — session dispose owns listener lifetime.
         }
     }
 

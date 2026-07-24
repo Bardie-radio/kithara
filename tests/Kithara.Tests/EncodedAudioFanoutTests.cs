@@ -23,11 +23,16 @@ public class EncodedAudioFanoutTests
     }
 
     [Fact]
-    public void Publish_empty_is_noop()
+    public async Task Publish_after_subscriber_joins_late_still_delivers()
     {
         var fanout = new EncodedAudioFanout();
-        fanout.Publish(ReadOnlyMemory<byte>.Empty);
-        Assert.Equal(0, fanout.ListenerCount);
+        fanout.Publish(new byte[] { 9 });
+
+        await using var subscription = fanout.SubscribeAsync().GetAsyncEnumerator();
+        var move = subscription.MoveNextAsync().AsTask();
+        fanout.Publish(new byte[] { 1, 2, 3 });
+        Assert.True(await move.WaitAsync(TimeSpan.FromSeconds(2)));
+        Assert.Equal(new byte[] { 1, 2, 3 }, subscription.Current.ToArray());
         fanout.Complete();
     }
 }
