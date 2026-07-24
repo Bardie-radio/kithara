@@ -9,7 +9,7 @@ flowchart LR
 
 Client-facing HTTP API on Kithara (any client module). Base path: `/api`.
 
-**Phases 4–6 target:** create is **encode-alive** once Phase 4 lands (session FIFO + silence feeder + FFmpeg → continuous MP3). Phase 3 left create **control-alive** (slug + FIFO + guest secrets; DJ REST without encoder). Stream Server ICY (`GET /stream/{slug}`) is Phase 5. Grant CRUD + guest refresh + rate-limit are Phase 6 contracts below.
+**Phases 4–6 landed:** create is **encode-alive** (session FIFO + silence feeder + FFmpeg → continuous MP3). Stream Server ICY is `GET /stream/{slug}`. Grant CRUD, guest refresh, and guest-exchange rate-limit are live (soft residuals → Phase 8 / [security-audit](../mvp/security-audit.md)).
 
 **Credentials (auth locks):**
 
@@ -32,7 +32,7 @@ See [auth.md](auth.md).
 
 Kithara verifies **login** JWTs via module JWKS; it does not mint them. It **does** mint JWTs for **ephemeral guest users** (see below).
 
-**Guest refresh (Phase 6 / SEC-01):** before dialing an auth module, `POST /api/auth/refresh` detects Kithara guest material (e.g. claim `bardie_provider=kithara.guest`), validates the refresh locally, and remints access (+ refresh) until the Struna still exists / capped lifetime. Login refresh still routes to the adapter.
+**Guest refresh (GUEST-REF-001):** before dialing an auth module, `POST /api/auth/refresh` detects Kithara guest material (e.g. claim `bardie_provider=kithara.guest`), validates the refresh locally, and remints access (+ refresh) until the Struna still exists / capped lifetime. Login refresh still routes to the adapter.
 
 ## Guest control
 
@@ -40,7 +40,7 @@ Kithara verifies **login** JWTs via module JWKS; it does not mint them. It **doe
 |--------|------|-------------|
 | POST | `/api/streams/{id}/guest/exchange` | **Unauthenticated** bootstrap. Body: short guest code → create **ephemeral guest user** + Kithara-signed JWT (+ refresh) |
 
-Rate-limit is Phase 6 (SEC-05: per-IP + per-Struna; failures → `429`). Each exchange creates a **new** ephemeral guest user for that joiner (Struna-scoped; destroyed with the Struna). Do not send the guest code on every request. Details: [struna-access](../domains/struna-access.md).
+Rate-limit (GUEST-XCHG-001): fixed window per IP + Struna; failures → `429` (failure lockout polish → Phase 8). Each exchange creates a **new** ephemeral guest user for that joiner (Struna-scoped; destroyed with the Struna). Do not send the guest code on every request. Details: [struna-access](../domains/struna-access.md).
 
 ## Strunas
 
@@ -50,12 +50,12 @@ Wire paths stay English (`/api/streams`); product language is **Struna**.
 |--------|------|-------------|
 | GET | `/api/streams/listen` | List Strunas the principal may **listen** to (owner + grant; public for everyone) |
 | GET | `/api/streams/control` | List Strunas the principal may **control** (owner + grant + protected-control guest) |
-| POST | `/api/streams` | Create — **encode-alive** target (Phase 4): slug unique among alive Strunas, session FIFO, silence + FFmpeg, guest code; listen token when playback is protected. Today (pre-4): control-alive only |
+| POST | `/api/streams` | Create **encode-alive**: slug unique among alive Strunas, session FIFO, silence + FFmpeg, guest code; listen token when playback is protected |
 | GET | `/api/streams/{id}` | Get by internal GUID (listen **or** control ACL) |
-| POST | `/api/streams/{id}/pause` | Pause: silence feeder on + optional module `PauseTrack` (Phase 4 semantics) |
+| POST | `/api/streams/{id}/pause` | Pause: silence feeder on + optional module `PauseTrack` (idempotent) |
 | DELETE | `/api/streams/{id}` | Tear down: stop track, stop silence, kill FFmpeg, close FIFO, free slug, destroy guests + clear their **search cache** |
 | POST | `/api/streams/{id}/skip` | Stop current track job → next queue entry (encoder stays up) |
-| GET | `/api/streams/{id}/now-playing` | Current track / Neck snapshot (same source as ICY `StreamTitle` once Phase 5 exists) |
+| GET | `/api/streams/{id}/now-playing` | Current track / Neck snapshot (same source as ICY `StreamTitle`) |
 
 There is **no** separate `POST …/stop` — same lifecycle as `DELETE`. There is **no** bare `GET /api/streams` list — use `/listen` or `/control`.
 
@@ -95,7 +95,7 @@ Resolved intent — one of:
 | Search-result ref | `search_result_id` or alias `result_id` → resolves to / creates Tune | Opaque; principal-scoped **search cache** (not search history) |
 | Direct ref | `module` + module-native id / URI | Creates/updates a Tune then plays (Magpie URL; Starling stream URI) |
 
-Empty body does **not** start a new track — it only resumes the active job (Phase 4: silence feeder off + optional `ResumeTrack`).
+Empty body does **not** start a new track — it only resumes the active job (silence feeder off when `TrackStatus` returns `Running` + optional `ResumeTrack`).
 
 ### `quickplay` body
 
@@ -155,7 +155,7 @@ Quickplay / quickqueue still pick a source via configured **priority** (and late
 - `409` — slug conflict among alive Strunas
 - `401` / `403` — auth / permission per [struna-access](../domains/struna-access.md)
 - `404` — unknown Struna / queue entry; or no quicksearch/quickplay hit after fallbacks
-- `429` — guest exchange rate-limited (Phase 6 / SEC-05)
+- `429` — guest exchange rate-limited (Phase 6 / GUEST-XCHG-001)
 - `502` — source/auth **module dial failed** (gRPC/capability/search/`StartTrack`/`PauseTrack`/… upstream error). Body includes an `error` string; do not treat as a client validation failure
 
 **Related:** [auth.md](auth.md) · [struna-access](../domains/struna-access.md) · [playback-control](../domains/playback-control.md) · [source-modules](../domains/source-modules.md) · [streams](../domains/streams.md)

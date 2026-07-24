@@ -22,7 +22,7 @@ message RegisterRequest {
   string slug = 1;                    // lowercase codename; operator may override via env
   string join_secret = 2;             // bootstrap trust (before mTLS cert exists)
   string kind = 3;                    // open string — not a closed enum
-  repeated string capabilities = 4;   // e.g. search, play, pause, seedAdmin
+  repeated string capabilities = 4;   // e.g. search, play, pause, prefetch, seedAdmin
   string grpc_advertise_address = 5;  // where the host dials this module for work RPCs
   oneof details {
     SourceRegisterDetails source = 10;   // optional; used when kind is well-known "source"

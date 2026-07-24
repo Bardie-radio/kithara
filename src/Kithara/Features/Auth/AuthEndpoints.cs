@@ -87,7 +87,7 @@ public static class AuthEndpoints
             return Results.BadRequest(new { error = "provider_id and refresh_token are required." });
         }
 
-        // SEC-01: host-minted guest refresh — do not dial auth modules.
+        // GUEST-REF-001: host-minted guest refresh — do not dial auth modules.
         if (string.Equals(body.ProviderId, GuestJwtService.ProviderClaimValue, StringComparison.Ordinal))
         {
             var reminted = await guests.TryRefreshAsync(body.RefreshToken, ct).ConfigureAwait(false);

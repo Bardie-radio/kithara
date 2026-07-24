@@ -35,8 +35,11 @@ Flags the module advertises at registration so Kithara and clients know which RP
 | `search` | Module implements `Search` (clients can query it, alone or in fan-out) |
 | `play` | Module can run track jobs (`StartTrack` / `StopTrack`) writing PCM to the session FIFO |
 | `pause` | An active track job can **pause and resume** without tearing down the job (`PauseTrack` / `ResumeTrack`) |
+| `prefetch` | Module can **warm its blob cache** for a `track_ref` without opening the session FIFO (`PrefetchTrack`) |
 
 Modules **without** `pause` (Starling) only support a full **stop** of the track job — there is no mid-job freeze. That is the main behavioral difference for an external/live stream source versus Magpie or Catbird: the input is continuous.
+
+Modules **without** `prefetch` still play correctly; enqueue just skips cache warmup until `StartTrack`.
 
 Exact capability strings live in the [gRPC contract](../interfaces/grpc-source-module.md) (**v0.1 draft**); the invariant is advertise what you can do, don’t invent source-type labels.
 

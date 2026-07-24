@@ -3,7 +3,7 @@ using System.Security.Cryptography.X509Certificates;
 namespace Bardie.Module.Channel.Certificates;
 
 /// <summary>
-/// Peer identity helpers for SEC-06 bilateral mTLS pinning.
+/// Peer identity helpers for MESH-CHN-001 bilateral mTLS pinning.
 /// Host / module names are caller-supplied — this library does not hardcode a product host slug.
 /// </summary>
 public static class CertificateIdentity

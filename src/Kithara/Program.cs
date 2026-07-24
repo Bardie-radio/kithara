@@ -39,7 +39,7 @@ builder.Services.AddModuleRegistry(builder.Configuration);
 builder.Services.AddKitharaAuthAuthentication(builder.Configuration);
 builder.Services.AddHostedService<SeedAdminBootstrapHostedService>();
 
-// SEC-05: guest-code exchange is unauthenticated — bound by IP + Struna id.
+// GUEST-XCHG-001: guest-code exchange is unauthenticated — bound by IP + Struna id.
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;

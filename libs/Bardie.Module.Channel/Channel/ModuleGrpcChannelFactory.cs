@@ -12,7 +12,7 @@ public interface IModuleGrpcChannelFactory
     /// <summary>
     /// Dial a peer.
     /// When <paramref name="expectedServerIdentity"/> is set (host→module work dials), the remote
-    /// server cert CN/SAN must match that identity (registered module slug) — SEC-06 slug pin.
+    /// server cert CN/SAN must match that identity (registered module slug) — MESH-CHN-001 slug pin.
     /// When unset and <paramref name="trustRemoteServerCertificate"/> is false (default), the remote
     /// server cert must chain to the mesh CA. When <paramref name="trustRemoteServerCertificate"/> is
     /// true and no expected identity is set, any present server cert is accepted (legacy / tests).
@@ -76,7 +76,7 @@ public sealed class ModuleGrpcChannelFactory : IModuleGrpcChannelFactory
 
                     using var presented = new X509Certificate2(cert);
 
-                    // SEC-06: pin work-port identity to registered module slug (self-signed OK).
+                    // MESH-CHN-001: pin work-port identity to registered module slug (self-signed OK).
                     if (expected is not null)
                     {
                         return CertificateIdentity.Matches(presented, expected);

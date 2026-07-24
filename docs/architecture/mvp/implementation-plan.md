@@ -64,23 +64,23 @@ flowchart TB
 
 ## Current baseline (honest)
 
-**Phases 1–3 complete.** Phase 3 closed on Search/StartTrack/FIFO/storage/EnsureTune + Magpie + Local smoke (control-alive DJ REST; no FFmpeg). Residual from that vertical (`TrackStatus` consume → Phase 4; CI E2E → Phase 8) is owned below — not open Phase 3 work. **Phases 4–6 run in parallel** from here — encode, ICY, and control/auth hardening do not wait on each other, but do not ship behaviour that bypasses an unfrozen contract. Spike Controllers / Playlist / Neck are gone from runtime — see [spike/prototype-neck-ffmpeg](../spike/prototype-neck-ffmpeg.md) for historical FFmpeg notes only.
+**Phases 1–6 complete.** Phase 3 closed the source vertical; Phases 4–6 closed encode-alive Neck, ICY Stream Server, and control/auth hardening (Jul 2026). Soft residuals from the Phases 4–6 audit (host rotate gate, guest lockout, host E2E, doc drift) are owned by **Phase 8** — see [security-audit](security-audit.md). Spike Controllers / Playlist / Neck are gone from runtime — see [spike/prototype-neck-ffmpeg](../spike/prototype-neck-ffmpeg.md) for historical FFmpeg notes only.
 
-Security findings from the Phases 1–3 review live in [security-audit.md](security-audit.md); **active remediations are Phases 4–6**. Non-security follow-ups are mapped into Phases **4 / 5 / 6 / 8** below (no extra phase).
+Next shipping focus: **Phase 7 (Plume)** and **Phase 8 (Compose + verify)**.
 
 
-| Area    | Today                                                          | Phases 4–6 (parallel) + later                    |
+| Area    | Today                                                          | Later                                            |
 | ------- | -------------------------------------------------------------- | ------------------------------------------------ |
-| Layout  | Feature folders + packable Module.* / Orchestrator.* / Contracts | Encode + ICY + control/auth hardening            |
-| Models  | ADR 006 EF entities + migrations                               | Grant CRUD depth; roles on bindings (6)          |
-| Auth    | Orch + Bes + JWT Bearer `/api/auth/*` + `seedAdmin`            | Security P0/P1 (6); provider_id→module map (6)   |
-| Audio   | Session FIFO + Magpie PCM (sine proof + YouTube path)          | FFmpeg + silence (4) → Stream Server (5)         |
-| Control | Most Phase 6 REST landed under Phase 3 (no FFmpeg)             | Guest refresh/rate-limit; grants; ceiling; roles |
-| Modules | Registry + mTLS; Bes live; Magpie source RPCs live             | Channel host↔slug pin (4); Plume (7)             |
+| Layout  | Feature folders + packable Module.* / Orchestrator.* / Contracts | Plume (7); Compose E2E (8)                       |
+| Models  | ADR 006 EF entities + migrations + grant CRUD                  | —                                                |
+| Auth    | Orch + Bes + JWT + guest refresh + AUTH/GUEST-* (soft residuals → 8)  | Host rotate gate / lockout polish (8)            |
+| Audio   | Encode-alive: silence + FFmpeg + Magpie PCM + ICY `/stream`    | Continuity polish / NECK-JOB-001 (8)             |
+| Control | Full DJ REST + pause-as-silence + TrackStatus now-playing      | —                                                |
+| Modules | Registry + mTLS host↔slug pin; Bes + Magpie live               | Plume (7)                                        |
 
 ## Phase map
 
-Phases are **dependency-ordered** for *shipping* outcomes. **Phases 4–6 are implemented in parallel** after Phase 3: Neck/encode, Stream Server stubs, and control/auth hardening may proceed together; integrate at Phase 8.
+Phases are **dependency-ordered** for *shipping* outcomes. Phases 4–6 ran in parallel after Phase 3 and are now closed; integrate and verify at Phase 8.
 
 
 | Phase | Name             | Outcome                                                               | Status |
@@ -88,31 +88,31 @@ Phases are **dependency-ordered** for *shipping* outcomes. **Phases 4–6 are im
 | **1** | Kithara skeleton | Feature layout, DB, Module Registry, join secrets, **OTel bootstrap** | Complete |
 | **2** | Auth vertical | Orchestrator + Bes + JWT verify + bootstrap user path | Complete |
 | **3** | Source vertical | Source protocol + Magpie proof (`Search` / `StartTrack` / FIFO write) | Complete |
-| **4** | Neck + encode | Alive Struna, silence feeder, FFmpeg supervisor + **Channel peer pin (SEC-06)** | **Active (parallel)** |
-| **5** | Stream Server | `GET /stream/{slug}` ICY + listen-token gate | **Active (parallel)** |
-| **6** | Control REST + auth hardening | Remaining control depth + **security P0/P1** + orch routing (DES-01) | **Active (parallel)** |
-| **7** | Plume MVP | Discovery login + control UI (optional client) | After enough of 5–6 |
-| **8** | Compose + verify | Reference stack, join secrets, OTLP E2E, **QA/OPS/DOC debt** | After 4–6 |
+| **4** | Neck + encode | Alive Struna, silence feeder, FFmpeg supervisor + **Channel peer pin (MESH-CHN-001)** | Complete |
+| **5** | Stream Server | `GET /stream/{slug}` ICY + listen-token gate | Complete |
+| **6** | Control REST + auth hardening | Remaining control depth + **security P0/P1** + orch routing (AUTH-ORCH-001) | Complete |
+| **7** | Plume MVP | Discovery login + control UI (optional client) | **Next** |
+| **8** | Compose + verify | Reference stack, join secrets, OTLP E2E, **QA/OPS/DOC debt** | After 7 (or parallel) |
 
 
-Phase 7 needs Phase 2 + enough of 5–6. Phase 8 needs MVP apps green enough to compose — OTel export itself is already live from Phase 1 / each module’s first boot.
+Phase 7 needs Phase 2 + enough of 5–6 (now available). Phase 8 needs MVP apps green enough to compose — OTel export itself is already live from Phase 1 / each module’s first boot.
 
 ### Phases 1–3 review → phase ownership
 
 | ID | Kind | Summary | Phase |
 |----|------|---------|-------|
-| SEC-01 | Security P0 | Guest refresh path missing | **6** |
-| SEC-02 | Security P0 | `EnsureTune` storage_key ownership | **6** |
-| SEC-03 | Security P0 | `must_rotate_credentials` never enforced | **6** |
-| SEC-07 | Security P0 | Every Bes mint → `roles=[admin]` | **6** |
-| SEC-04 | Security P1 | JWKS sync-over-async | **6** |
-| SEC-05 | Security P1 | Guest exchange rate-limit | **6** |
-| SEC-06 | Security P1 | Channel host↔slug mTLS pin | **4** |
-| DES-01 | Design/debt | Auth orch: `provider_id`→module from discovery (still pass `provider_id` on wire) | **6** |
-| DES-02 | Design/debt | Wire `TrackStatus` / recover jobs; Neck in-memory map | **4** |
-| QA-01 | QA | Host integration tests; Magpie/Bes module-local tests | **8** (+ land tests with 4–6 PRs) |
-| OPS-01 | Ops | Phase3 sine smoke vs Magpie Release image | **8** |
-| DOC-01 | Docs | Doc vs code drift (Tune path, Bes ops, Magpie scope, phase status) | **8** |
+| GUEST-REF-001 | Security P0 | Guest refresh path missing | **6** |
+| LIB-TUNE-001 | Security P0 | `EnsureTune` storage_key ownership | **6** |
+| AUTH-ROT-001 | Security P0 | `must_rotate_credentials` never enforced | **6** |
+| AUTH-ROLE-001 | Security P0 | Every Bes mint → `roles=[admin]` | **6** |
+| AUTH-JWKS-001 | Security P1 | JWKS sync-over-async | **6** |
+| GUEST-XCHG-001 | Security P1 | Guest exchange rate-limit | **6** |
+| MESH-CHN-001 | Security P1 | Channel host↔slug mTLS pin | **4** |
+| AUTH-ORCH-001 | Design/debt | Auth orch: `provider_id`→module from discovery (still pass `provider_id` on wire) | **6** |
+| NECK-JOB-002 | Design/debt | Wire `TrackStatus` / recover jobs; Neck in-memory map | **4** |
+| META-QA-001 | QA | Host integration tests; Magpie/Bes module-local tests | **8** (+ land tests with 4–6 PRs) |
+| META-OPS-001 | Ops | Phase3 sine smoke vs Magpie Release image | **8** |
+| META-DOC-001 | Docs | Doc vs code drift (Tune path, Bes ops, Magpie scope, phase status) | **8** |
 | MESH-REG-* | Mesh residual | Join-secret takeover / auto key-on-wire / ephemeral CA | Ops + backlog ([security-audit](security-audit.md)) |
 
 ### OTel in practice (ASP.NET / modules)
@@ -263,7 +263,7 @@ libs/
 
 ## Phase 3 — Source vertical (protocol + Magpie proof)
 
-**Status: complete.** Source protocol + Magpie proof (`Search` / `StartTrack` / FIFO write). Residuals owned elsewhere: consume `TrackStatus` (→ Phase 4), CI E2E (→ Phase 8).
+**Status: complete.** Source protocol + Magpie proof (`Search` / `StartTrack` / FIFO write). Residuals owned elsewhere: consume `TrackStatus` (closed in Phase 4), CI E2E (→ Phase 8).
 
 **Why:** Prove multi-container audio control before investing in FFmpeg lifecycle.
 
@@ -273,7 +273,7 @@ libs/
 2. Temporary **dev harness**: create a session FIFO path, call Magpie `StartTrack`, verify PCM bytes appear (even before Stream Server) — REST create/play + Local `scripts/phase3-source-smoke.sh`.
 3. Storage interface MVP: local driver + opaque keys under `tunes/<source_slug>/…`; Magpie put/get via `BlobStorage` — **done**.
 4. Library write path: Magpie dials `Library.EnsureTune` after Put on cache miss (Kithara owns EF upsert) — **done**.
-5. **Phase 6 control REST (landed under Phase 3, no FFmpeg):** search + principal **search cache**; Struna create/get/delete; `/listen` + `/control` lists; play/quickplay/pause/skip/now-playing; queue/quickqueue; guest exchange. Session FIFO only — encode-alive is Phase 4.
+5. **Phase 6 control REST (landed under Phase 3, no FFmpeg then):** search + principal **search cache**; Struna create/get/delete; `/listen` + `/control` lists; play/quickplay/pause/skip/now-playing; queue/quickqueue; guest exchange. Encode-alive + silence landed in Phase 4.
 6. Shared source-module lib `Bardie.Module.Source` — **done**.
 
 
@@ -309,20 +309,20 @@ libs/
 
 ## Phase 4 — Neck (alive Struna + FFmpeg)
 
-**Status: active (parallel with Phases 5–6).**
+**Status: complete.** Encode-alive create, silence feeder, in-process MP3 supervisor, `TrackStatus` → now-playing / queue advance, pause-as-silence, `PrefetchTrack` on enqueue, FIFO realtime pacing, Channel peer pin (MESH-CHN-001). Soft continuity residuals → Phase 8 ([security-audit](security-audit.md) NECK-JOB-001).
 
-**Why:** Broadcast sync and ICY continuity require long-lived encoder + silence ([ADR 001](../adrs/001-broadcast-sync-model.md), [ADR 004](../adrs/004-source-instance-socket-audio-plane.md)). Host→module dials intensify here — close Channel peer pinning with this phase.
+**Why:** Broadcast sync and ICY continuity require long-lived encoder + silence ([ADR 001](../adrs/001-broadcast-sync-model.md), [ADR 004](../adrs/004-source-instance-socket-audio-plane.md)). Host→module dials intensify here — Channel peer pinning closed with this phase.
 
 ### Work
 
-1. Hosted **FFmpeg supervisor** (not request-scoped) + `IDbContextFactory` — discard spike singleton+scoped pattern.
-2. Promote create from **control-alive** (slug + FIFO already) to **encode-alive**: start silence feeder + FFmpeg reading the session FIFO.
-3. `DELETE /api/streams/{id}` → `StopTrack` first, then kill FFmpeg, close FIFO, free slug (guest teardown already clears search cache).
-4. Pause = silence feeder on; empty `play` = unpause ([playback-control](../domains/playback-control.md)) — today empty play is `ResumeTrack` only.
-5. Queue head → `StartTrack` / skip → `StopTrack` + next; **never** restart FFmpeg on queue shift (queue/skip REST already dials modules).
-6. **Operator encode profile (locked):** PCM s16le / 48 kHz / stereo → MP3 (~128 kbps, `libmp3lame`). No user-facing `compatibility` / `quality` create field for MVP.
-7. **DES-02:** Use `TrackStatus` (or equivalent) for now-playing / recovery; do not leave Magpie jobs orphaned solely in Neck’s in-memory map across restart without a recovery story. On create/play after host restart: `_jobs` empty; `TrackStatus` advances the queue while alive; no Magpie reattach across Kithara restart (orphan jobs die with lost dials).
-8. **SEC-06 ([security-audit](security-audit.md)):** In `Bardie.Module.Channel`, pin bilateral identity — module work-port accepts **host** client identity (not any mesh-CA cert); host→module dials pin the registered **slug** on the work-port server cert. Not a Bes `SeedAdmin` special-case.
+1. Hosted **FFmpeg supervisor** (not request-scoped) + `IDbContextFactory` — discard spike singleton+scoped pattern — **done**.
+2. Promote create from **control-alive** (slug + FIFO already) to **encode-alive**: start silence feeder + FFmpeg reading the session FIFO — **done**.
+3. `DELETE /api/streams/{id}` → `StopTrack` first, then kill FFmpeg, close FIFO, free slug (guest teardown already clears search cache) — **done**.
+4. Pause = silence feeder on; empty `play` = unpause ([playback-control](../domains/playback-control.md)) — **done**.
+5. Queue head → `StartTrack` / skip → `StopTrack` + next; **never** restart FFmpeg on queue shift — **done**.
+6. **Operator encode profile (locked):** PCM s16le / 48 kHz / stereo → MP3 (~128 kbps, `libmp3lame`). No user-facing `compatibility` / `quality` create field for MVP — **done**.
+7. **NECK-JOB-002:** `TrackStatus` drives now-playing / queue advance; silence on until `Running`; `Preparing` through download/transcode; `StopTracksForStruna` + Magpie sibling cancel; per-Struna gate; ICY `StreamTitle` never falls back to raw `track_ref` — **done**. Cross-restart Magpie reattach remains out of scope (orphan jobs die with lost dials).
+8. **MESH-CHN-001 ([security-audit](security-audit.md)):** bilateral host↔slug mTLS pin — **done**.
 
 
 
@@ -344,16 +344,16 @@ libs/
 
 ## Phase 5 — Stream Server (ICY)
 
-**Status: active (parallel with Phases 4 and 6).**
+**Status: complete.** `GET /stream/{slug}` with ICY + fan-out from Neck encode; listen-token / access gates; `StreamTitle` from Neck now-playing. Soft residuals (constant-time token compare) → Phase 8.
 
 **Why:** Listeners are the product surface; API-only is not a radio.
 
 ### Work
 
-1. `GET /stream/{slug}` with ICY headers + `icy-metaint` metadata injection ([http-stream-output](../interfaces/http-stream-output.md)).
-2. Fan-out from FFmpeg pipe to N listeners.
-3. Playback access gates: public / protected query token / private Bearer ([struna-access](../domains/struna-access.md)).
-4. Push now-playing → `StreamTitle` updates from Neck/track status (pairs with Phase 4 DES-02).
+1. `GET /stream/{slug}` with ICY headers + `icy-metaint` metadata injection ([http-stream-output](../interfaces/http-stream-output.md)) — **done**.
+2. Fan-out from FFmpeg pipe to N listeners — **done**.
+3. Playback access gates: public / protected query token / private Bearer ([struna-access](../domains/struna-access.md)) — **done**.
+4. Push now-playing → `StreamTitle` updates from Neck/track status — **done**.
 
 
 
@@ -368,43 +368,43 @@ libs/
 
 ## Phase 6 — Control REST complete + auth hardening
 
-**Status: active (parallel with Phases 4–5).** Most DJ REST already landed under Phase 3; this phase finishes control depth and **owns security P0/P1** from the Phases 1–3 review (except SEC-06 → Phase 4).
+**Status: complete.** Grant CRUD, permission ceiling, pause-as-silence + empty play unpause, now-playing aligned with ICY, AUTH/GUEST/LIB product remediations, AUTH-ORCH-001 orch routing. Soft residuals (host rotate deny, guest failure lockout) → Phase 8 — see [security-audit](security-audit.md).
 
 **Why:** Clients (Plume or raw HTTP) need a trustworthy DJ surface — not just verbs that work.
 
-### Already under Phase 3
+### Landed under Phase 3 (control verbs)
 
 | Slice | Status |
 |-------|--------|
 | `GET /api/search/quick` (`q`/`query`), `POST /api/search` + principal **search cache** (≠ history) | **Done** |
 | `GET /api/streams/listen`, `GET /api/streams/control` | **Done** |
-| `POST/GET/DELETE /api/streams`, `POST …/play` / `quickplay` (Neck FIFO; no FFmpeg) | **Done** |
-| `POST …/pause`, `POST …/skip`, `GET …/now-playing` | **Done** (pause = module `PauseTrack` today; silence feeder + Neck snapshot → Phase 4/5) |
+| `POST/GET/DELETE /api/streams`, `POST …/play` / `quickplay` | **Done** |
+| `POST …/pause`, `POST …/skip`, `GET …/now-playing` | **Done** |
 | Queue / quickqueue CRUD | **Done** |
-| Guest exchange + destroy guests with Struna (+ clear their search cache) | **Done** (rate-limit / refresh → below) |
-| Owner + grant (+ protected-control guest) ACL stubs | **Done** (ceiling / grant CRUD → below) |
+| Guest exchange + destroy guests with Struna (+ clear their search cache) | **Done** |
+| Owner + grant (+ protected-control guest) ACL stubs | **Done** |
 
-### Remaining work — control
+### Closed in Phase 6 — control
 
-1. **Grant CRUD** (owner-only): `GET/POST /api/streams/{id}/grants`, `DELETE …/grants/{userId}` — persist `StrunaControlGrant`.
-2. **Managed permission ceiling:** store `permission_ceiling` on static-client Register; enforce on create-struna / grant mutations for managed users (deny above ceiling). User-aware clients unconstrained.
-3. Pause-as-silence + empty `play` unpause once Phase 4 Neck silence feeder exists.
-4. `GET /api/streams/{id}/now-playing` aligned with ICY metadata (Phase 5 Stream Server) — same Neck snapshot.
+1. **Grant CRUD** (owner-only) — **done**.
+2. **Managed permission ceiling** — **done**.
+3. Pause-as-silence + empty `play` unpause — **done**.
+4. `GET …/now-playing` aligned with ICY `StreamTitle` — **done**.
 
-### Remaining work — security ([security-audit](security-audit.md))
+### Closed in Phase 6 — security ([security-audit](security-audit.md))
 
-| ID | Work |
-|----|------|
-| **SEC-01** | Host guest refresh on `POST /api/auth/refresh` (`bardie_provider=kithara.guest`) until Struna teardown / capped lifetime |
-| **SEC-02** | `BlobKeyLayout.EnsureKeyOwnedBy` in `LibraryService.EnsureTune` |
-| **SEC-03** | Bes: honor `must_rotate_credentials` on Authenticate + password-change via Authenticate bag (`new_password` when rotating); clear flag on success |
-| **SEC-07** | Bes: roles from stored user/binding; `SeedAdmin` → `admin`; later subjects default `user` (or empty) unless seeded |
-| **SEC-04** | Async-safe JWKS key cache (no `GetResult` in IssuerSigningKeyResolver) |
-| **SEC-05** | Rate-limit `POST …/guest/exchange` (per-IP / per-Struna; failures → 429) |
+| ID | Status |
+|----|--------|
+| **GUEST-REF-001** | **Done** — host guest refresh |
+| **LIB-TUNE-001** | **Done** — `EnsureKeyOwnedBy` |
+| **AUTH-ROT-001** | **Partial** — Bes mint + `new_password`; host control deny → Phase 8 (AUTH-ROT-002) |
+| **AUTH-ROLE-001** | **Done** — roles from binding |
+| **AUTH-JWKS-001** | **Done** — async JWKS snapshot |
+| **GUEST-XCHG-001** | **Partial** — 10/min rate limit; failure lockout → Phase 8 (GUEST-XCHG-002) |
 
-### Remaining work — orch routing (non-security)
+### Closed in Phase 6 — orch routing
 
-4. **DES-01:** Auth Orchestrator routes `Authenticate` / `Refresh` via discovery `provider_id → module` map (already tagged on `MergedProviderDescriptor`). Still pass `provider_id` on the gRPC request so one adapter can route internally to the right gateway. One adapter per auth concern (e.g. one passkeys module for all gateways) — not many adapters for the same task.
+4. **AUTH-ORCH-001:** Auth Orchestrator `provider_id → module` map — **done**.
 
 
 
@@ -412,7 +412,7 @@ libs/
 
 - Full DJ loop with Bes JWT and with guest JWT on a protected-control Struna.
 - Magpie is selectable only via `module` slug / priority — no Magpie-specific REST.
-- Security checklist items for Phase 6 in [security-audit](security-audit.md) are closed (SEC-01…05, SEC-07).
+- Security checklist items for Phase 6 in [security-audit](security-audit.md) are closed (GUEST-REF-001, LIB-TUNE-001, AUTH-ROLE-001, AUTH-JWKS-001; AUTH-ROT-001 / GUEST-XCHG-001 partial); soft residuals AUTH-ROT-002 / GUEST-XCHG-002 → Phase 8.
 - `provider_id` that is not equal to module slug still authenticates against the correct adapter.
 
 ---
@@ -462,15 +462,15 @@ libs/
 2. `BARDIE_JOIN_SECRETS` for all modules; audio/storage volumes as decided.
 3. Point every app at the **external** OTel collector (`OTEL_EXPORTER_OTLP_ENDPOINT`); confirm `service.name` values per [observability](../operations/observability.md).
 4. Smoke script / checklist: register → login → create → play → listen → skip — **and** a single play trace spanning Plume → Kithara → Magpie.
-5. **QA-01:** Host integration tests (discovery→`/me`, create→play→FIFO readable, guest exchange, `seedAdmin` bootstrap). Prefer landing tests alongside Phase 4–6 PRs; Phase 8 is the freeze that they must pass. Magpie/Bes module-local unit tests.
-6. **OPS-01:** Align Local phase3 sine smoke with Magpie image config (Debug sine helper vs Release YouTube default) so the documented smoke path is honest.
-7. **DOC-01:** Sweep doc drift (library Tune path, Bes operations JWT wording, Magpie Register wording, MVP phase status vs code).
+5. **META-QA-001:** Host integration tests (discovery→`/me`, create→play→FIFO readable, guest exchange, `seedAdmin` bootstrap). Prefer landing tests alongside Phase 4–6 PRs; Phase 8 is the freeze that they must pass. Magpie/Bes module-local unit tests.
+6. **META-OPS-001:** Align Local phase3 sine smoke with Magpie image config (Debug sine helper vs Release YouTube default) so the documented smoke path is honest.
+7. **META-DOC-001:** Sweep doc drift (library Tune path, Bes operations JWT wording, Magpie Register wording, MVP phase status vs code).
 
 ### Exit criteria
 
 - Documented `docker compose up` path for the MVP quartet.
 - Collector shows a continuous play path across all four `bardie.*` service names.
-- QA-01 / OPS-01 / DOC-01 closed or explicitly deferred with owners.
+- META-QA-001 / META-OPS-001 / META-DOC-001 closed or explicitly deferred with owners.
 
 ---
 
@@ -499,11 +499,11 @@ Prefer **vertical slices** that end in a demoable behaviour over horizontal “a
 
 Aligned with [v0.1-scope](v0.1-scope.md):
 
-- [ ] Alive Struna with slug; silence until first track; DELETE frees slug  
-- [ ] Magpie search/play via unified source contract  
-- [ ] Bes login via unified auth contract; Kithara verifies JWTs  
-- [ ] ICY `/stream/{slug}` with metadata; protected listen token  
-- [ ] Guest code → ephemeral guest user + JWT; guests die with Struna  
+- [x] Alive Struna with slug; silence until first track; DELETE frees slug  
+- [x] Magpie search/play via unified source contract  
+- [x] Bes login via unified auth contract; Kithara verifies JWTs  
+- [x] ICY `/stream/{slug}` with metadata; protected listen token  
+- [x] Guest code → ephemeral guest user + JWT; guests die with Struna  
 - [ ] Plume optional; Compose + join secrets; OTel live from Phase 1, verified E2E in Phase 8
 
 Out of scope stays out: Argus/Hecate, Beak/Cauda, Catbird/Starling, Icecast/HLS primary, multi-instance Kithara, `PrepareTrack`.
@@ -548,4 +548,4 @@ Design-review open questions are **closed**. Phase 0 can proceed from the locked
 - [glossary](../glossary.md) · [grpc-module-registry](../interfaces/grpc-module-registry.md) · [grpc-source-module](../interfaces/grpc-source-module.md) · [grpc-blob-storage](../interfaces/grpc-blob-storage.md) · [grpc-library](../interfaces/grpc-library.md) · [auth](../interfaces/auth.md)
 - Org: [05-deployment](https://github.com/Bardie-radio/.github/blob/main/profile/docs/architecture/05-deployment.md)
 
-**Read next:** [security-audit.md](security-audit.md) · Phases 4–6 in parallel (Neck + Stream Server + control/auth hardening).
+**Read next:** [security-audit.md](security-audit.md) · Phase 7 Plume · Phase 8 Compose + verify.

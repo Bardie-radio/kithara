@@ -13,7 +13,7 @@ public static class ModuleParticipantKestrelExtensions
     /// <summary>
     /// Binds HTTPS HTTP/2 for module work RPCs. Presents the module work-port server cert and
     /// requires a client certificate chained to the mesh CA with the configured host identity
-    /// (<see cref="ModuleParticipantOptions.ExpectedHostClientIdentity"/>) — SEC-06 inbound pin.
+    /// (<see cref="ModuleParticipantOptions.ExpectedHostClientIdentity"/>) — MESH-CHN-001 inbound pin.
     /// </summary>
     public static ListenOptions UseBardieModuleWorkGrpc(this ListenOptions listenOptions)
     {
@@ -62,7 +62,7 @@ public static class ModuleParticipantKestrelExtensions
                     return false;
                 }
 
-                // SEC-06: reject other mesh modules dialing this work-port (CA alone is not enough).
+                // MESH-CHN-001: reject other mesh modules dialing this work-port (CA alone is not enough).
                 return CertificateIdentity.IsHostClient(certificate, expectedHost);
             };
         });

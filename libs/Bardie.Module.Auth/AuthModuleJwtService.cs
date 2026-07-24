@@ -75,7 +75,7 @@ public sealed class AuthModuleJwtService : IDisposable
         var refreshExpires = now.AddDays(Math.Max(1, _options.RefreshTokenDays));
 
         var accessClaims = BuildBaseClaims(subject, AccessTokenUse, mustRotateCredentials, roles);
-        // Roles travel on refresh too so remint does not invent privileges (SEC-07).
+        // Roles travel on refresh too so remint does not invent privileges (AUTH-ROLE-001).
         var refreshClaims = BuildBaseClaims(subject, RefreshTokenUse, mustRotateCredentials, roles);
 
         var access = CreateToken(accessClaims, now, accessExpires);

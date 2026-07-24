@@ -63,7 +63,7 @@ public sealed class GuestJwtService
 
     /// <summary>
     /// Validates a Kithara-minted guest refresh token and remints access+refresh while the
-    /// ephemeral guest user and Struna still exist (SEC-01).
+    /// ephemeral guest user and Struna still exist (GUEST-REF-001).
     /// </summary>
     public async Task<(string AccessToken, string RefreshToken, long ExpiresIn)?> TryRefreshAsync(
         string refreshToken,

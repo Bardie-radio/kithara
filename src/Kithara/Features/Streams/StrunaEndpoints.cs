@@ -24,7 +24,7 @@ public static class StrunaEndpoints
     {
         var root = endpoints.MapGroup("/api/streams");
 
-        // Bootstrap is unauthenticated (guest code only); SEC-05 rate-limits per IP + Struna.
+        // Bootstrap is unauthenticated (guest code only); GUEST-XCHG-001 rate-limits per IP + Struna.
         root.MapPost("/{id:guid}/guest/exchange", GuestExchangeAsync)
             .RequireRateLimiting("guest-exchange");
 

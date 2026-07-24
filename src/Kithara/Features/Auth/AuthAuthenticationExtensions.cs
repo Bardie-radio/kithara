@@ -157,7 +157,7 @@ public static class AuthAuthenticationServiceCollectionExtensions
         services.AddOptions<JwtBearerOptions>(LoginBearerScheme)
             .Configure<AuthModuleJwksKeyProvider, GuestJwtSigningKeyStore>((options, keyProvider, guestKeys) =>
             {
-                // SEC-04: resolver reads the pre-warmed snapshot only — never GetResult().
+                // AUTH-JWKS-001: resolver reads the pre-warmed snapshot only — never GetResult().
                 options.TokenValidationParameters.IssuerSigningKeyResolver =
                     (_, _, _, _) => keyProvider.GetCachedSigningKeys().Append(guestKeys.GetSigningKey());
             });

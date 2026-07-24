@@ -53,9 +53,9 @@ Redirect-style providers (Argus) set `ui.redirect.authorize_url`. The browser re
 Kithara does not mint login JWTs and does not interpret provider-specific crypto beyond verifying signatures with the module’s registered JWKS. It routes the bag, persists binding data when asked, and enforces Struna ACLs using claims/roles from the verified JWT (plus DB).
 
 - **Refresh (login):** entirely on the auth-module side.
-- **Refresh (ephemeral guest — Phase 6 / SEC-01):** host path on the same `POST /api/auth/refresh`. Detect Kithara guest (e.g. `bardie_provider=kithara.guest`), validate + remint until Struna teardown / capped lifetime — do **not** dial an auth adapter.
+- **Refresh (ephemeral guest — Phase 6 / GUEST-REF-001):** host path on the same `POST /api/auth/refresh`. Detect Kithara guest (e.g. `bardie_provider=kithara.guest`), validate + remint until Struna teardown / capped lifetime — do **not** dial an auth adapter.
 - Revoke / logout: module- and IdP-dependent for login users; guests die with the Struna. Rotating the guest code **does not** kill existing guests — it only blocks new exchanges.
-- **`must_rotate_credentials`:** seeded admins must change creds on first login; optional force-rotate for any durable user later (Phase 6 / SEC-03).
+- **`must_rotate_credentials`:** seeded admins must change creds on first login; optional force-rotate for any durable user later (Phase 6 / AUTH-ROT-001).
 
 ## Bootstrap admin (`seedAdmin`)
 

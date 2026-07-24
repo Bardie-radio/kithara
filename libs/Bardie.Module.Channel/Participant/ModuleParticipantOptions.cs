@@ -33,13 +33,13 @@ public sealed class ModuleParticipantOptions
 
     /// <summary>DNS SANs embedded in the module work-port server certificate.</summary>
     /// <remarks>
-    /// Put the module <c>slug</c> first — host dials pin CN/SAN to the registered slug (SEC-06).
+    /// Put the module <c>slug</c> first — host dials pin CN/SAN to the registered slug (MESH-CHN-001).
     /// Example Magpie: <c>["magpie", "localhost"]</c>.
     /// </remarks>
     public string[] ServerDnsNames { get; set; } = ["localhost"];
 
     /// <summary>
-    /// Host client identity (CN/SAN) that may dial this module's work-port (SEC-06).
+    /// Host client identity (CN/SAN) that may dial this module's work-port (MESH-CHN-001).
     /// Must match the host mesh cert — e.g. Bardie modules set <c>kithara</c>.
     /// Empty rejects all work-port clients.
     /// Env: <c>MODULE_EXPECTED_HOST_IDENTITY</c>.

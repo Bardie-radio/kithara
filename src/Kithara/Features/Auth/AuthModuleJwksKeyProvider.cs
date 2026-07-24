@@ -10,7 +10,7 @@ namespace Kithara.Features.Auth;
 
 /// <summary>
 /// Resolves signing keys from registered auth-module JWKS (inline JSON or URI).
-/// Snapshot is refreshed asynchronously; the JWT resolver reads the snapshot only (SEC-04).
+/// Snapshot is refreshed asynchronously; the JWT resolver reads the snapshot only (AUTH-JWKS-001).
 /// </summary>
 public sealed class AuthModuleJwksKeyProvider
 {

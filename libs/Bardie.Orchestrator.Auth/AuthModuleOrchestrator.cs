@@ -25,7 +25,7 @@ public sealed class AuthModuleOrchestrator
     private readonly IModuleCertificateStore _certificateStore;
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthModuleOrchestrator> _logger;
-    /// <summary>DES-01: discovery <c>provider_id</c> → module slug (filled by <see cref="GetProvidersAsync"/>).</summary>
+    /// <summary>AUTH-ORCH-001: discovery <c>provider_id</c> → module slug (filled by <see cref="GetProvidersAsync"/>).</summary>
     private readonly ConcurrentDictionary<string, string> _providerToModule =
         new(StringComparer.OrdinalIgnoreCase);
 
@@ -74,7 +74,7 @@ public sealed class AuthModuleOrchestrator
                 foreach (var provider in response.Providers)
                 {
                     var mapped = MapProvider(provider, module.Slug);
-                    // DES-01: keep provider_id → module map warm for Authenticate/Refresh routing.
+                    // AUTH-ORCH-001: keep provider_id → module map warm for Authenticate/Refresh routing.
                     if (!string.IsNullOrWhiteSpace(mapped.Id))
                     {
                         _providerToModule[mapped.Id] = module.Slug;
@@ -343,7 +343,7 @@ public sealed class AuthModuleOrchestrator
     }
 
     /// <summary>
-    /// DES-01: route via discovery <c>provider_id → module</c> map; still pass <c>provider_id</c> on the wire.
+    /// AUTH-ORCH-001: route via discovery <c>provider_id → module</c> map; still pass <c>provider_id</c> on the wire.
     /// Falls back to slug match, then single-module only when unambiguous.
     /// </summary>
     private async Task<AuthModuleRegistration?> ResolveModuleForProviderAsync(
@@ -413,7 +413,7 @@ public sealed class AuthModuleOrchestrator
         }
 
         // Short-lived PEM copy for this dial; channel disposes it (never Export Kestrel's ServerCertificate).
-        // SEC-06: pin work-port server cert CN/SAN to the registered module slug.
+        // MESH-CHN-001: pin work-port server cert CN/SAN to the registered module slug.
         return _channelFactory.CreateChannel(
             address,
             _certificateStore.OpenOutboundClientIdentity(),

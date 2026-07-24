@@ -23,10 +23,10 @@ A **Struna** (stream) is a named broadcast channel managed by **Neck** inside Ki
 
 | Layer | When | Means |
 |-------|------|--------|
-| **Control-alive** | Now (Phase 3+) | Slug reserved, session FIFO created, guest code (+ listen token when playback is protected). Play/queue/skip work against source modules writing PCM into the FIFO |
-| **Encode-alive** | Phase 4 | Silence feeder + FFmpeg supervisor reading that FIFO for continuous encoded output |
+| **Control-alive** | Phase 3+ | Slug reserved, session FIFO created, guest code (+ listen token when playback is protected). Play/queue/skip work against source modules writing PCM into the FIFO |
+| **Encode-alive** | Phase 4+ | Silence feeder + FFmpeg supervisor reading that FIFO for continuous encoded output |
 
-Until Phase 4, create is control-alive only — there is no encoder yet, so listeners cannot hear `/stream/{slug}`. **DELETE** (or silent **cleanup**) stops the track job, closes the FIFO, destroys guests, and **frees the slug** — there is no separate stop endpoint.
+Create is **encode-alive**: listeners hear `/stream/{slug}` (Phase 5 ICY). **DELETE** (or silent **cleanup**) stops the track job, closes the FIFO, destroys guests, and **frees the slug** — there is no separate stop endpoint.
 
 ## Neck service responsibilities
 

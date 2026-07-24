@@ -36,7 +36,7 @@ public sealed class LibraryService : Bardie.Library.V1.Library.LibraryBase
             throw new RpcException(new Status(StatusCode.InvalidArgument, "external_id is required."));
         }
 
-        // SEC-02: Tune metadata must not claim another module's blob key.
+        // LIB-TUNE-001: Tune metadata must not claim another module's blob key.
         string? storageKey = null;
         if (!string.IsNullOrWhiteSpace(request.StorageKey))
         {

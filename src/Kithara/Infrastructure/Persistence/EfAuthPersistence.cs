@@ -73,7 +73,7 @@ public sealed class EfAuthPersistence : IAuthPersistence
             binding.PayloadJson = string.IsNullOrWhiteSpace(request.PayloadJson)
                 ? binding.PayloadJson
                 : request.PayloadJson;
-            // Sync rotate flag from adapter (SeedAdmin escalates; password-change clears — SEC-03).
+            // Sync rotate flag from adapter (SeedAdmin escalates; password-change clears — AUTH-ROT-001).
             binding.User.MustRotateCredentials = request.MustRotateCredentials;
 
             if (request.Roles is { Count: > 0 })
