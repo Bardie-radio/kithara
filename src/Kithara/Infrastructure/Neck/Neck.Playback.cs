@@ -65,6 +65,9 @@ public sealed partial class Neck
         }
 
         // Keep encoder; silence fills the gap until TrackStatus Running (module writing PCM).
+        // After host restart the DB row exists but the encode session may not — restore first.
+        await EnsureEncodeAliveAsync(strunaId, struna.Slug, recreateFifo: false, cancellationToken)
+            .ConfigureAwait(false);
         _encoder.SetSilence(strunaId, true);
 
         var fifo = await EnsureStrunaFifoAsync(strunaId, cancellationToken).ConfigureAwait(false);

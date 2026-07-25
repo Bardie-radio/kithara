@@ -29,18 +29,27 @@ public static class NeckServiceCollectionExtensions
     }
 }
 
-/// <summary>Disposes encoder sessions on host shutdown.</summary>
-internal sealed class NeckEncoderHostedService : IHostedService
+/// <summary>
+/// Rehydrates encode-alive sessions from DB Strunas on startup; disposes encoders on shutdown.
+/// </summary>
+internal sealed class NeckEncoderHostedService(
+    Neck neck,
+    StrunaEncoderSupervisor encoder,
+    ILogger<NeckEncoderHostedService> logger) : IHostedService
 {
-    private readonly StrunaEncoderSupervisor _encoder;
-
-    public NeckEncoderHostedService(StrunaEncoderSupervisor encoder)
+    public async Task StartAsync(CancellationToken cancellationToken)
     {
-        _encoder = encoder;
+        try
+        {
+            await neck.RehydrateAliveStrunasAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            // Do not fail host boot — individual Struna failures are logged inside Rehydrate.
+            logger.LogError(ex, "Encode-alive rehydration failed");
+        }
     }
 
-    public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-
     public async Task StopAsync(CancellationToken cancellationToken) =>
-        await _encoder.DisposeAsync().ConfigureAwait(false);
+        await encoder.DisposeAsync().ConfigureAwait(false);
 }

@@ -63,6 +63,7 @@ Drop a module on the Compose network with its **join secret** and it registers. 
 
 - Ready when HTTP responds and gRPC accepts registrations.
 - Stopping the container tears down alive Struna encoders and open stream connections.
+- **Restart:** Struna **rows** (and queues) live in the DB; encode sessions do not. On startup Neck **rehydrates** FIFO + silence + FFmpeg for every DB Struna so `/stream/{slug}` and play work again without recreating the Struna.
 - Horizontal multi-instance Kithara is **out of MVP scope**.
 
 ## Related
