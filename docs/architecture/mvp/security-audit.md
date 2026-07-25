@@ -87,10 +87,13 @@ Historical aliases (`SEC-*`, `NEW-*`, `DES-*`, `KI-*`, `QA-*`, `DOC-*`, `OPS-*`)
 | ID | Sev | Summary | Owner |
 |----|-----|---------|-------|
 | **AUTH-ROT-002** | P1 | Host denies control while `must_rotate` (`403` + `credentials_rotation_required`) | **Fixed** (Phase 8) |
+| **AUTH-SEED-001** | P1 | SeedAdmin orphan deadlock (`CreateDurableUser` then failed `SeedAdminBinding`) | **Fixed** — rollback + binding-gated bootstrap |
+| **AUTH-BIND-001** | P1 | Register subject collision / overwrite via `EnsureUserWithBinding` | **Fixed** — explicit-user path never steals subjects; register rolls back |
+| **AUTH-DISP-001** | P2 | No host `User.Username`; login id is Bes `external_subject` / seed `"admin"` | **Open** — display/unique Kithara username |
 | **NECK-JOB-001** | P2 | TrackStatus disconnect without terminal event can orphan Neck jobs | Phase 8 / Neck polish — drives [NECK-SWP-001](known-issues.md#neck-swp-001--orphan-writer-sweep-runs-on-every-play-including-new-strunas) / [kithara#26](https://github.com/Bardie-radio/kithara/issues/26) |
 | **GUEST-XCHG-002** | P2 | Guest failure lockout (5 failures → 15 min) | **Fixed** (Phase 8) |
 | **STREAM-TOK-001** | P2 | Listen-token compare not constant-time | **Fixed** — `CryptographicOperations.FixedTimeEquals` |
-| **AUTH-JWKS-002** | P2 | JWKS snapshot cold window at boot | **Fixed** — Register awaits first JWKS refresh |
+| **AUTH-JWKS-002** | P2 | JWKS snapshot cold window at boot | **Fixed** — Register awaits JWKS; fail-closed rejects Register |
 | **META-QA-001** | P1 | No host E2E; Bes/Magpie have no module-local tests | Phase 8 ([kithara#22](https://github.com/Bardie-radio/kithara/issues/22), bes#6, magpie#2) |
 | **META-DOC-001** | P3 | Plan/module docs lag code (incl. `/player` autoplay wording) | Phase 8 ([kithara#23](https://github.com/Bardie-radio/kithara/issues/23), [plume#12](https://github.com/Bardie-radio/plume/issues/12), bes#7, magpie#3) |
 | **META-OPS-002** | P2 | Final images: Ubuntu aspnet + full apt `ffmpeg`; Alpine + bare-minimum libav | Phase 8 ([kithara#33](https://github.com/Bardie-radio/kithara/issues/33), [magpie#6](https://github.com/Bardie-radio/magpie/issues/6), [plume#13](https://github.com/Bardie-radio/plume/issues/13), [bes#10](https://github.com/Bardie-radio/bes/issues/10)) — [known-issues](known-issues.md#meta-ops-002--final-images-bloated-ubuntu--full-ffmpeg) |
@@ -148,7 +151,43 @@ gRPC checks `module_slug ==` caller identity, then passes `StorageKey` through w
 
 `SeedAdmin` invented users and Authenticate accepted `new_password` for rotate; the host never denied control while `MustRotateCredentials` was set.
 
-**Remediation (shipped):** Kithara invents DEFAULT_ADMIN → `SeedAdminBinding`; binding create/update via `UpdateUserBinding` + discovery `bind_form` (ceremony bind/update). Authenticate is login-only. Host returns `403` + `credentials_rotation_required` on control while rotate is required (AUTH-ROT-002).
+**Remediation (shipped):** Kithara invents DEFAULT_ADMIN → `SeedAdminBinding`; binding create/update via `UpdateUserBinding` + discovery `bind_form` (ceremony bind/update). Authenticate is login-only. Host returns `403` + `credentials_rotation_required` on control while rotate is required (AUTH-ROT-002). Seed/register roll back unbound users on failure (AUTH-SEED-001); explicit-user bind refuses subject theft (AUTH-BIND-001). Host display username still open (AUTH-DISP-001).
+
+---
+
+## AUTH-SEED-001 — SeedAdmin orphan deadlock
+
+**Severity:** P1  
+**Component:** `AuthModuleHarness.TrySeedAdminAsync` / bootstrap  
+**Fix:** Phase **8**
+
+`CreateDurableUserAsync` before `SeedAdminBinding`; on RPC failure the user row remained, `HasAnyUsersAsync` blocked retries, no admin binding.
+
+**Remediation (shipped):** Gate bootstrap on bindings; delete unbound durables before seed; delete the created user when SeedAdminBinding or persist fails.
+
+---
+
+## AUTH-BIND-001 — Register subject collision
+
+**Severity:** P1  
+**Component:** `EfAuthPersistence.EnsureUserWithBindingAsync` / `POST /api/auth/register`  
+**Fix:** Phase **8**
+
+Explicit-user ensure fell back to `(provider, externalSubject)` and could overwrite another user's binding; failed bind left orphan users.
+
+**Remediation (shipped):** Explicit `UserId` path only mutates that user's binding and throws `AuthBindingConflictException` on subject collision; register deletes the user when bind fails.
+
+---
+
+## AUTH-DISP-001 — No host `User.Username`
+
+**Severity:** P2  
+**Component:** User entity / discovery display  
+**Fix:** backlog (post AUTH-ROT close)
+
+Login id lives as Bes `external_subject` (seed string `"admin"`). Unique Kithara username / display name not landed.
+
+**Remediation:** Add host-owned unique username (or equivalent) separate from adapter subject; wire into `/me` and UI.
 
 ---
 
@@ -283,13 +322,15 @@ Join secret is the **bootstrap** credential before mTLS exists. Auto deliberatel
 - [x] Guest refresh works for `kithara.guest` (GUEST-REF-001)
 - [x] Guest exchange rate-limited (GUEST-XCHG-001 — lockout GUEST-XCHG-002)
 - [x] Bes roles from binding; SeedAdminBinding is first admin only (AUTH-ROLE-001)
-- [x] `must_rotate` cleared via `UpdateUserBinding` / `bind_form`; host denies control (AUTH-ROT-001 / AUTH-ROT-002)
-- [x] JWKS snapshot warm on auth Register (AUTH-JWKS-002)
+- [x] `must_rotate` cleared via `UpdateUserBinding` / `bind_form`; host control deny (AUTH-ROT-001 / AUTH-ROT-002)
+- [x] JWKS snapshot warm on auth Register; fail-closed (AUTH-JWKS-002)
+- [x] SeedAdmin / register orphan rollback; subject collision refuse (AUTH-SEED-001 / AUTH-BIND-001)
 - [x] Listen-token FixedTimeEquals (STREAM-TOK-001)
 - [x] Channel host↔slug pin on work dials (MESH-CHN-001)
 - [x] Plume BFF: no JWT in browser; discovery without provider-id branching; CSP + antiforgery (PLUME-SEC-001/002)
 - [x] Plume `/player` may autoplay (product intent — docs under META-DOC-001)
 - [ ] Phase 8: host E2E + module tests + remaining doc sweep
+- [ ] AUTH-DISP-001: host `User.Username` / unique display id
 
 ---
 

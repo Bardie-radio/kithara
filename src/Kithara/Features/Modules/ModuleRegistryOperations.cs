@@ -161,15 +161,23 @@ public sealed class ModuleRegistryOperations
             PermissionCeiling = permissionCeiling,
         });
 
-        await ProjectToHarnessCatalogsAsync(
-                request,
-                slug,
-                kind,
-                capabilities,
-                now,
-                expiresAt,
-                cancellationToken)
-            .ConfigureAwait(false);
+        try
+        {
+            await ProjectToHarnessCatalogsAsync(
+                    request,
+                    slug,
+                    kind,
+                    capabilities,
+                    now,
+                    expiresAt,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch
+        {
+            _registry.Remove(slug);
+            throw;
+        }
 
         _logger.LogInformation(
             "Module {Slug} ({Kind}) registered; bootstrap={Bootstrap}; well_known={WellKnown}",
@@ -262,7 +270,7 @@ public sealed class ModuleRegistryOperations
                     ExpiresAt = expiresAt,
                 });
                 // AUTH-JWKS-002: eagerly await first JWKS snapshot before module-signed Bearer
-                // can be accepted for this slug (fail closed with a clear log if fetch fails).
+                // can be accepted for this slug (fail closed — reject Register if keys missing).
                 await RefreshJwksAfterAuthRegisterAsync(slug, cancellationToken).ConfigureAwait(false);
                 break;
 
@@ -304,12 +312,16 @@ public sealed class ModuleRegistryOperations
     {
         try
         {
-            await _jwksKeys.RefreshSnapshotAsync(cancellationToken).ConfigureAwait(false);
+            await _jwksKeys.RequireSigningKeysForModuleAsync(slug, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation("JWKS snapshot refreshed after auth module {Slug} register", slug);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning(ex, "JWKS snapshot refresh failed after auth module {Slug} register", slug);
+            _authCatalog.Remove(slug);
+            _logger.LogError(ex, "JWKS snapshot refresh failed after auth module {Slug} register — rejecting", slug);
+            throw new RpcException(new Status(
+                StatusCode.FailedPrecondition,
+                $"Auth module '{slug}' JWKS is unavailable; registration rejected."));
         }
     }
 }

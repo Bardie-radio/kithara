@@ -37,16 +37,15 @@ Each module ships one **`module.manifest.json`**. ModuleChannel loads **generic*
   "kind": "auth",
   "displayName": "Bes",
   "otelServiceName": "bardie.auth.bes",
-  "capabilities": ["seedAdmin"],
+  "capabilities": ["seedAdmin", "updateBinding"],
   "auth": {
     "loginFormFields": [
       { "name": "username", "label": "Username", "inputType": "text", "required": true },
       { "name": "password", "label": "Password", "inputType": "password", "required": true }
     ],
     "bindFormFields": [
-      { "name": "username", "label": "Username", "inputType": "text", "required": true },
-      { "name": "password", "label": "Password", "inputType": "password", "required": true },
-      { "name": "new_password", "label": "New password", "inputType": "password", "required": false }
+      { "name": "username", "label": "Username", "inputType": "text", "required": false },
+      { "name": "password", "label": "Password", "inputType": "password", "required": true }
     ]
   }
 }
@@ -86,20 +85,22 @@ Capabilities are **open strings** on the wire. ModuleChannel never interprets th
 | **source** | `pause` | Implements `PauseTrack` / `ResumeTrack` without tearing down the job | Magpie yes; **Starling omits** |
 | **source** | `prefetch` | Implements `PrefetchTrack` (warm blob cache; no FIFO write) | Magpie yes; Starling/Catbird typically omit |
 | **auth** | `seedAdmin` | Host may call `SeedAdminBinding` when user DB empty | **Bes yes**; Argus typically **no** |
+| **auth** | `updateBinding` | Host may expose `UpdateUserBinding` + discovery `bind_form` (self-service account update / forced rotate) | **Bes yes**; IdP-only modules typically **no** |
 
 ### Auth — reserved (document now; advertise only when implemented)
 
 | Capability | Why useful |
 |------------|------------|
-| `selfRegister` | Open signup via `bind_form` → `UpdateUserBinding` ceremony `bind` without operator seed |
+| `selfRegister` | Open signup via `bind_form` → `UpdateUserBinding` ceremony `bind` without operator seed (also surfaces `bind_form` on discovery) |
 | `passwordReset` | Host/UI can expose reset; module owns ceremony via `bind_form` later |
 
 **Not a module capability:** account linking stays **Kithara’s story** (explicit multi-provider link in the user DB / harness). Auth adapters only prove identity for their provider — they do not advertise `accountLink`.
 
 ### Do not put in `capabilities[]`
 
-- `authenticate` / `refresh` / `getProviders` / `health` / `updateUserBinding` — core auth contract; every well-known auth module must speak the first four (`UpdateUserBinding` / `SeedAdminBinding` when capable)
-- `login_form` / `bind_form` / `redirect` — discovery surfaces on `GetProviders`, not Register caps
+- `authenticate` / `refresh` / `getProviders` / `health` — core auth contract every well-known auth module speaks
+- `login_form` / `bind_form` / `redirect` — discovery surfaces on `GetProviders` (host strips `bind_form` unless `updateBinding` / `selfRegister`)
+- `updateUserBinding` / `seedAdminBinding` — RPC names; advertise **`updateBinding`** / **`seedAdmin`** instead
 - Permission strings (`create_struna`, …) — **`client.permissionCeiling`** on Register (customizer)
 - Source type labels (`youtube`, `live`, `files`) — do not invent these as capabilities
 - `PrepareTrack` — out of MVP until the RPC exists

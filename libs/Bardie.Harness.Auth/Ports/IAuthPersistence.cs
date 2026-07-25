@@ -7,12 +7,25 @@ public interface IAuthPersistence
 {
     Task<bool> HasAnyUsersAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>True when any auth binding exists (seed gate — unbound orphans do not count).</summary>
+    Task<bool> HasAnyAuthBindingsAsync(CancellationToken cancellationToken = default);
+
     Task<int> CountUsersAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Creates a durable user row with no bindings yet. Returns the new user id.</summary>
     Task<Guid> CreateDurableUserAsync(
         bool mustRotateCredentials,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes a user and cascaded bindings (register/seed rollback when module bind fails).
+    /// </summary>
+    Task DeleteUserAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes durable users that have no bindings (recovers failed SeedAdmin / register orphans).
+    /// </summary>
+    Task<int> DeleteUnboundDurableUsersAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Looks up a binding by provider slug + external subject (e.g. username).</summary>
     Task<AuthBindingRecord?> FindBindingBySubjectAsync(
@@ -28,7 +41,9 @@ public interface IAuthPersistence
 
     /// <summary>
     /// Creates or updates a durable user + binding. Returns the user id.
-    /// When <see cref="EnsureUserBindingRequest.UserId"/> is set, attaches/updates that user.
+    /// When <see cref="EnsureUserBindingRequest.UserId"/> is set, attaches/updates that user only —
+    /// never reassigns another user's <c>(provider, subject)</c> (throws
+    /// <see cref="AuthBindingConflictException"/> on collision).
     /// </summary>
     Task<Guid> EnsureUserWithBindingAsync(
         EnsureUserBindingRequest request,

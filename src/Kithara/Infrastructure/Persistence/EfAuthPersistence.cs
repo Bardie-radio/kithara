@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Bardie.Harness.Auth.Ports;
 using Kithara.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +17,12 @@ public sealed class EfAuthPersistence : IAuthPersistence
     {
         await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
         return await db.Users.AnyAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<bool> HasAnyAuthBindingsAsync(CancellationToken cancellationToken = default)
+    {
+        await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        return await db.UserAuthBindings.AnyAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<int> CountUsersAsync(CancellationToken cancellationToken = default)
@@ -42,6 +47,37 @@ public sealed class EfAuthPersistence : IAuthPersistence
         db.Users.Add(user);
         await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return user.Id;
+    }
+
+    public async Task DeleteUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken)
+            .ConfigureAwait(false);
+        if (user is null)
+        {
+            return;
+        }
+
+        db.Users.Remove(user);
+        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<int> DeleteUnboundDurableUsersAsync(CancellationToken cancellationToken = default)
+    {
+        await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        var orphans = await db.Users
+            .Where(u => u.Kind == UserKind.Durable && !u.AuthBindings.Any())
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (orphans.Count == 0)
+        {
+            return 0;
+        }
+
+        db.Users.RemoveRange(orphans);
+        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return orphans.Count;
     }
 
     public async Task<AuthBindingRecord?> FindBindingBySubjectAsync(
@@ -104,18 +140,13 @@ public sealed class EfAuthPersistence : IAuthPersistence
     {
         await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        UserAuthBinding? binding = null;
         if (request.UserId is { } explicitUserId)
         {
-            binding = await db.UserAuthBindings
-                .Include(b => b.User)
-                .FirstOrDefaultAsync(
-                    b => b.UserId == explicitUserId && b.ProviderSlug == request.ProviderSlug,
-                    cancellationToken)
+            return await EnsureBindingForExplicitUserAsync(db, request, explicitUserId, cancellationToken)
                 .ConfigureAwait(false);
         }
 
-        binding ??= await db.UserAuthBindings
+        var bySubject = await db.UserAuthBindings
             .Include(b => b.User)
             .FirstOrDefaultAsync(
                 b => b.ProviderSlug == request.ProviderSlug
@@ -123,61 +154,99 @@ public sealed class EfAuthPersistence : IAuthPersistence
                 cancellationToken)
             .ConfigureAwait(false);
 
+        if (bySubject is not null)
+        {
+            ApplyBindingUpdate(bySubject, request);
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            return bySubject.UserId;
+        }
+
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Kind = UserKind.Durable,
+            CreatedAt = DateTimeOffset.UtcNow,
+            Status = "active",
+            MustRotateCredentials = request.MustRotateCredentials,
+        };
+        db.Users.Add(user);
+        db.UserAuthBindings.Add(CreateBinding(user.Id, request));
+        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return user.Id;
+    }
+
+    private static async Task<Guid> EnsureBindingForExplicitUserAsync(
+        KitharaDbContext db,
+        EnsureUserBindingRequest request,
+        Guid explicitUserId,
+        CancellationToken cancellationToken)
+    {
+        var subjectOwner = await db.UserAuthBindings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                b => b.ProviderSlug == request.ProviderSlug
+                    && b.ExternalSubject == request.ExternalSubject,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (subjectOwner is not null && subjectOwner.UserId != explicitUserId)
+        {
+            throw new AuthBindingConflictException(
+                $"External subject '{request.ExternalSubject}' is already bound for provider '{request.ProviderSlug}'.");
+        }
+
+        var binding = await db.UserAuthBindings
+            .Include(b => b.User)
+            .FirstOrDefaultAsync(
+                b => b.UserId == explicitUserId && b.ProviderSlug == request.ProviderSlug,
+                cancellationToken)
+            .ConfigureAwait(false);
+
         if (binding is not null)
         {
-            binding.PayloadJson = string.IsNullOrWhiteSpace(request.PayloadJson)
-                ? binding.PayloadJson
-                : request.PayloadJson;
-            binding.ExternalSubject = request.ExternalSubject;
-            // Sync rotate flag from adapter (SeedAdminBinding escalates; UpdateUserBinding clears).
-            binding.User.MustRotateCredentials = request.MustRotateCredentials;
-
-            if (request.Roles is { Count: > 0 })
-            {
-                binding.PayloadJson = BindingPayloadJson.MergeRoles(binding.PayloadJson, request.Roles);
-            }
-
+            ApplyBindingUpdate(binding, request);
             await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return binding.UserId;
         }
 
-        User user;
-        if (request.UserId is { } existingId)
-        {
-            user = await db.Users.FirstOrDefaultAsync(u => u.Id == existingId, cancellationToken)
-                .ConfigureAwait(false)
-                ?? throw new InvalidOperationException($"User '{existingId}' was not found.");
-            user.MustRotateCredentials = request.MustRotateCredentials;
-        }
-        else
-        {
-            user = new User
-            {
-                Id = Guid.NewGuid(),
-                Kind = UserKind.Durable,
-                CreatedAt = DateTimeOffset.UtcNow,
-                Status = "active",
-                MustRotateCredentials = request.MustRotateCredentials,
-            };
-            db.Users.Add(user);
-        }
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == explicitUserId, cancellationToken)
+            .ConfigureAwait(false)
+            ?? throw new InvalidOperationException($"User '{explicitUserId}' was not found.");
+        user.MustRotateCredentials = request.MustRotateCredentials;
+        db.UserAuthBindings.Add(CreateBinding(user.Id, request));
+        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return user.Id;
+    }
 
+    private static void ApplyBindingUpdate(UserAuthBinding binding, EnsureUserBindingRequest request)
+    {
+        binding.PayloadJson = string.IsNullOrWhiteSpace(request.PayloadJson)
+            ? binding.PayloadJson
+            : request.PayloadJson;
+        binding.ExternalSubject = request.ExternalSubject;
+        binding.User.MustRotateCredentials = request.MustRotateCredentials;
+
+        if (request.Roles is { Count: > 0 })
+        {
+            binding.PayloadJson = BindingPayloadJson.MergeRoles(binding.PayloadJson, request.Roles);
+        }
+    }
+
+    private static UserAuthBinding CreateBinding(Guid userId, EnsureUserBindingRequest request)
+    {
         var payloadJson = string.IsNullOrWhiteSpace(request.PayloadJson) ? "{}" : request.PayloadJson;
         if (request.Roles is { Count: > 0 })
         {
             payloadJson = BindingPayloadJson.MergeRoles(payloadJson, request.Roles);
         }
 
-        db.UserAuthBindings.Add(new UserAuthBinding
+        return new UserAuthBinding
         {
-            UserId = user.Id,
+            UserId = userId,
             ProviderSlug = request.ProviderSlug,
             ExternalSubject = request.ExternalSubject,
             PayloadJson = payloadJson,
-        });
-
-        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        return user.Id;
+        };
     }
 
     public async Task<AuthUserRecord?> FindUserByBindingSubjectAsync(

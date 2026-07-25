@@ -40,7 +40,7 @@ flowchart TB
 Clients render login / binding UI from discovery by switching on `ProviderDescriptor.ui` / `bind_form` — **not** on provider/module name:
 
 - `login_form` — client renders fields; POST → Authenticate (MVP Bes)
-- `bind_form` — same field bag for initial bind **and** later update (ceremony on the RPC); POST → host binding proxy → `UpdateUserBinding`
+- `bind_form` — module-owned binding data (initial bind **and** later update; ceremony on the RPC). Clients re-authenticate with `login_form` / redirect first, then POST **only** the bind bag → host → `UpdateUserBinding` (do not merge login credentials into the binding payload)
 - `redirect` — browser goes to `authorize_url`; returns to a **Kithara** callback
 - future ceremony case for passkeys — still mode-based, not `if hecate`
 

@@ -47,7 +47,8 @@ public sealed class AuthModuleJwksKeyProvider
         var keys = new List<SecurityKey>();
         foreach (var module in _catalog.List())
         {
-            var moduleKeys = await GetKeysForModuleAsync(module, cancellationToken).ConfigureAwait(false);
+            var moduleKeys = await GetKeysForModuleAsync(module, cacheEmpty: true, cancellationToken)
+                .ConfigureAwait(false);
             keys.AddRange(moduleKeys);
         }
 
@@ -58,8 +59,31 @@ public sealed class AuthModuleJwksKeyProvider
         }
     }
 
+    /// <summary>
+    /// AUTH-JWKS-002 fail-closed: load keys for <paramref name="slug"/> and refuse empty snapshots.
+    /// Does not cache empty/failed fetches so Register can retry after the module is healthy.
+    /// </summary>
+    public async Task RequireSigningKeysForModuleAsync(string slug, CancellationToken cancellationToken = default)
+    {
+        if (!_catalog.TryGet(slug, out var module) || module is null)
+        {
+            throw new InvalidOperationException($"Auth module '{slug}' is not in the catalog.");
+        }
+
+        var moduleKeys = await GetKeysForModuleAsync(module, cacheEmpty: false, cancellationToken)
+            .ConfigureAwait(false);
+        if (moduleKeys.Count == 0)
+        {
+            throw new InvalidOperationException(
+                $"Auth module '{slug}' has no usable JWKS (inline JSON or fetchable URI required).");
+        }
+
+        await RefreshSnapshotAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     private async Task<IReadOnlyList<SecurityKey>> GetKeysForModuleAsync(
         AuthModuleRegistration module,
+        bool cacheEmpty,
         CancellationToken cancellationToken)
     {
         var cacheKey = $"jwks:{module.Slug}:{module.JwksUri}:{Hash(module.JwksJson)}";
@@ -83,7 +107,11 @@ public sealed class AuthModuleJwksKeyProvider
         }
 
         var keys = ParseJwks(jwksJson);
-        _cache.Set(cacheKey, keys, TimeSpan.FromMinutes(5));
+        if (keys.Count > 0 || cacheEmpty)
+        {
+            _cache.Set(cacheKey, keys, TimeSpan.FromMinutes(5));
+        }
+
         return keys;
     }
 

@@ -77,7 +77,7 @@ public sealed class AuthModuleHarness
 
                 foreach (var provider in response.Providers)
                 {
-                    var mapped = MapProvider(provider, module.Slug);
+                    var mapped = MapProvider(provider, module);
                     // AUTH-ORCH-001: keep provider_id → module map warm for Authenticate/Refresh routing.
                     if (!string.IsNullOrWhiteSpace(mapped.Id))
                     {
@@ -315,6 +315,16 @@ public sealed class AuthModuleHarness
             ceremony = existing is null ? BindingCeremony.Bind : BindingCeremony.Update;
         }
 
+        if (!ModuleAllowsBindingCeremony(module, ceremony))
+        {
+            return new UpdateUserBindingResult(
+                false,
+                userId,
+                null,
+                false,
+                $"Provider '{providerId}' does not advertise binding updates.");
+        }
+
         using var channel = CreateModuleChannel(module.GrpcAdvertiseAddress, module.Slug);
         var client = new AuthAdapter.AuthAdapterClient(channel);
         var request = new UpdateUserBindingRequest
@@ -370,16 +380,24 @@ public sealed class AuthModuleHarness
         var payloadJson = response.BindingPayload.IsEmpty
             ? "{}"
             : Encoding.UTF8.GetString(response.BindingPayload.Span);
-        await _persistence.EnsureUserWithBindingAsync(
-                new EnsureUserBindingRequest(
-                    module.Slug,
-                    externalSubject,
-                    payloadJson,
-                    response.MustRotateCredentials,
-                    response.Roles.ToArray(),
-                    userId),
-                cancellationToken)
-            .ConfigureAwait(false);
+        try
+        {
+            await _persistence.EnsureUserWithBindingAsync(
+                    new EnsureUserBindingRequest(
+                        module.Slug,
+                        externalSubject,
+                        payloadJson,
+                        response.MustRotateCredentials,
+                        response.Roles.ToArray(),
+                        userId),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (AuthBindingConflictException ex)
+        {
+            _logger.LogWarning(ex, "UpdateUserBinding subject conflict for provider {Provider}", providerId);
+            return new UpdateUserBindingResult(false, userId, null, false, ex.Message);
+        }
 
         return new UpdateUserBindingResult(
             true,
@@ -391,10 +409,12 @@ public sealed class AuthModuleHarness
 
     /// <summary>
     /// Empty-DB bootstrap: invent DEFAULT_ADMIN user, call <c>SeedAdminBinding</c>, persist binding.
+    /// Rolls back the user row when the module RPC or binding persist fails so bootstrap can retry.
     /// </summary>
     public async Task<SeedAdminResult?> TrySeedAdminAsync(CancellationToken cancellationToken = default)
     {
-        if (await _persistence.HasAnyUsersAsync(cancellationToken).ConfigureAwait(false))
+        // Bindings — not bare user rows — gate seed (unbound orphans must not deadlock bootstrap).
+        if (await _persistence.HasAnyAuthBindingsAsync(cancellationToken).ConfigureAwait(false))
         {
             return null;
         }
@@ -409,8 +429,10 @@ public sealed class AuthModuleHarness
             return null;
         }
 
-        // Re-check emptiness — another instance may have raced before we create.
-        if (await _persistence.HasAnyUsersAsync(cancellationToken).ConfigureAwait(false))
+        // Recover durable users left without bindings by a prior failed SeedAdminBinding.
+        await _persistence.DeleteUnboundDurableUsersAsync(cancellationToken).ConfigureAwait(false);
+
+        if (await _persistence.HasAnyAuthBindingsAsync(cancellationToken).ConfigureAwait(false))
         {
             return null;
         }
@@ -439,6 +461,7 @@ public sealed class AuthModuleHarness
         catch (RpcException ex)
         {
             _logger.LogWarning(ex, "SeedAdminBinding RPC failed for module {Slug}", module.Slug);
+            await _persistence.DeleteUserAsync(userId, cancellationToken).ConfigureAwait(false);
             return null;
         }
 
@@ -448,22 +471,32 @@ public sealed class AuthModuleHarness
                 "SeedAdminBinding from {Slug} did not create a binding (created={Created}).",
                 module.Slug,
                 response.Created);
-            return new SeedAdminResult(false, response.WelcomeLogText, userId, response.ExternalSubject);
+            await _persistence.DeleteUserAsync(userId, cancellationToken).ConfigureAwait(false);
+            return new SeedAdminResult(false, response.WelcomeLogText, null, response.ExternalSubject);
         }
 
         var payloadJson = response.BindingPayload.IsEmpty
             ? "{}"
             : Encoding.UTF8.GetString(response.BindingPayload.Span);
-        await _persistence.EnsureUserWithBindingAsync(
-                new EnsureUserBindingRequest(
-                    module.Slug,
-                    response.ExternalSubject,
-                    payloadJson,
-                    response.MustRotateCredentials,
-                    response.Roles.ToArray(),
-                    userId),
-                cancellationToken)
-            .ConfigureAwait(false);
+        try
+        {
+            await _persistence.EnsureUserWithBindingAsync(
+                    new EnsureUserBindingRequest(
+                        module.Slug,
+                        response.ExternalSubject,
+                        payloadJson,
+                        response.MustRotateCredentials,
+                        response.Roles.ToArray(),
+                        userId),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Persisting SeedAdminBinding failed for module {Slug}", module.Slug);
+            await _persistence.DeleteUserAsync(userId, cancellationToken).ConfigureAwait(false);
+            return null;
+        }
 
         return new SeedAdminResult(true, response.WelcomeLogText, userId, response.ExternalSubject);
     }
@@ -561,7 +594,25 @@ public sealed class AuthModuleHarness
         return null;
     }
 
-    private static MergedProviderDescriptor MapProvider(ProviderDescriptor provider, string moduleSlug)
+    private static bool ModuleAllowsBindingCeremony(
+        AuthModuleRegistration module,
+        BindingCeremony ceremony)
+    {
+        var caps = module.Capabilities;
+        return ceremony switch
+        {
+            BindingCeremony.Update =>
+                WellKnownAuthCapabilities.HasCapability(caps, WellKnownAuthCapabilities.UpdateBinding),
+            BindingCeremony.Bind =>
+                WellKnownAuthCapabilities.HasCapability(caps, WellKnownAuthCapabilities.UpdateBinding)
+                || WellKnownAuthCapabilities.HasCapability(caps, WellKnownAuthCapabilities.SelfRegister),
+            _ => false,
+        };
+    }
+
+    private static MergedProviderDescriptor MapProvider(
+        ProviderDescriptor provider,
+        AuthModuleRegistration module)
     {
         var uiMode = provider.UiCase switch
         {
@@ -584,7 +635,11 @@ public sealed class AuthModuleHarness
             authorizeUrl = provider.Redirect.AuthorizeUrl;
         }
 
-        if (provider.BindForm is not null)
+        // Host only surfaces bind_form when the module advertises updateBinding (or selfRegister).
+        var exposeBindForm =
+            WellKnownAuthCapabilities.HasCapability(module.Capabilities, WellKnownAuthCapabilities.UpdateBinding)
+            || WellKnownAuthCapabilities.HasCapability(module.Capabilities, WellKnownAuthCapabilities.SelfRegister);
+        if (exposeBindForm && provider.BindForm is not null)
         {
             bindFields = provider.BindForm.Fields
                 .Select(f => new FormFieldDescriptor(f.Name, f.Label, f.InputType, f.Required))
@@ -594,7 +649,7 @@ public sealed class AuthModuleHarness
         return new MergedProviderDescriptor(
             provider.Id,
             provider.DisplayName,
-            moduleSlug,
+            module.Slug,
             uiMode,
             loginFields,
             bindFields,

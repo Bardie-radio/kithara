@@ -51,8 +51,8 @@ public class AuthAdapterModuleBaseTests
                   { "name": "password", "label": "Password", "inputType": "password", "required": true }
                 ],
                 "bindFormFields": [
-                  { "name": "password", "label": "Current password", "inputType": "password", "required": true },
-                  { "name": "new_password", "label": "New password", "inputType": "password", "required": false }
+                  { "name": "username", "label": "Username", "inputType": "text", "required": false },
+                  { "name": "password", "label": "Password", "inputType": "password", "required": true }
                 ]
               }
             }
@@ -71,7 +71,7 @@ public class AuthAdapterModuleBaseTests
         var bind = ModuleManifestAuthBag.TryBuildBindForm(manifest);
         Assert.NotNull(bind);
         Assert.Equal(2, bind!.Fields.Count);
-        Assert.Equal("new_password", bind.Fields[1].Name);
+        Assert.Equal("password", bind.Fields[1].Name);
     }
 
     [Fact]

@@ -41,9 +41,9 @@ public sealed class SeedAdminBootstrapHostedService : BackgroundService
             attempt++;
             try
             {
-                if (await _harness.Persistence.HasAnyUsersAsync(stoppingToken).ConfigureAwait(false))
+                if (await _harness.Persistence.HasAnyAuthBindingsAsync(stoppingToken).ConfigureAwait(false))
                 {
-                    _logger.LogDebug("User DB is not empty; SeedAdminBinding bootstrap skipped.");
+                    _logger.LogDebug("Auth bindings exist; SeedAdminBinding bootstrap skipped.");
                     return;
                 }
 

@@ -34,6 +34,9 @@ public class AuthHarnessScaffoldTests
         public Task<bool> HasAnyUsersAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(false);
 
+        public Task<bool> HasAnyAuthBindingsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(false);
+
         public Task<int> CountUsersAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(0);
 
@@ -41,6 +44,12 @@ public class AuthHarnessScaffoldTests
             bool mustRotateCredentials,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(Guid.NewGuid());
+
+        public Task DeleteUserAsync(Guid userId, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task<int> DeleteUnboundDurableUsersAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(0);
 
         public Task<AuthBindingRecord?> FindBindingBySubjectAsync(
             string providerSlug,

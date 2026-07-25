@@ -420,10 +420,12 @@ libs/
 | ------------------ | ----------------------------------------------------------------------------------- |
 | **GUEST-REF-001**  | **Done** — host guest refresh                                                       |
 | **LIB-TUNE-001**   | **Done** — `EnsureKeyOwnedBy`                                                       |
-| **AUTH-ROT-001**   | **Done** — `UpdateUserBinding` / `bind_form`; host control deny (AUTH-ROT-002) |
+| **AUTH-ROT-001**   | **Done** — `UpdateUserBinding` / `bind_form`; host control deny (AUTH-ROT-002); seed/register orphan + subject collision fixed (AUTH-SEED-001 / AUTH-BIND-001) |
 | **AUTH-ROLE-001**  | **Done** — roles from binding                                                       |
 | **AUTH-JWKS-001**  | **Done** — async JWKS snapshot                                                      |
-| **GUEST-XCHG-001** | **Partial** — 10/min rate limit; failure lockout → Phase 8 (GUEST-XCHG-002)         |
+| **AUTH-JWKS-002**  | **Done** — Register awaits JWKS; fail-closed rejects Register                       |
+| **GUEST-XCHG-001** | **Partial** — 10/min rate limit; failure lockout **Done** (GUEST-XCHG-002)         |
+| **AUTH-DISP-001**  | **Open** — host `User.Username` / unique display id (login id = Bes subject today)  |
 
 
 
@@ -438,7 +440,7 @@ libs/
 
 - Full DJ loop with Bes JWT and with guest JWT on a protected-control Struna.
 - Magpie is selectable only via `module` slug / priority — no Magpie-specific REST.
-- Security checklist items for Phase 6 in [security-audit](security-audit.md) are closed (GUEST-REF-001, LIB-TUNE-001, AUTH-ROLE-001, AUTH-JWKS-001, AUTH-ROT-001); soft residual GUEST-XCHG-002 → Phase 8.
+- Security checklist items for Phase 6 in [security-audit](security-audit.md) are closed (GUEST-REF-001, LIB-TUNE-001, AUTH-ROLE-001, AUTH-JWKS-001, AUTH-ROT-001); AUTH-DISP-001 remains open; GUEST-XCHG-002 closed in Phase 8.
 - `provider_id` that is not equal to module slug still authenticates against the correct adapter.
 
 ---

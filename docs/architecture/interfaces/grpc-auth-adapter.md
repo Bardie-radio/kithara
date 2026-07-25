@@ -30,12 +30,13 @@ Capabilities are **optional feature flags within kind `auth`**. They gate host R
 | Capability | Status | Meaning |
 |------------|--------|---------|
 | `seedAdmin` | **MVP** | Host may call `SeedAdminBinding` when the user DB is empty |
+| `updateBinding` | **MVP** | Host may expose `UpdateUserBinding` + discovery `bind_form` (self-service update / forced rotate) |
 | `selfRegister` | Reserved | Open signup: host exposes `bind_form` → `UpdateUserBinding` ceremony `bind` without operator seed — advertise only when implemented |
 | `passwordReset` | Reserved | Host/UI can expose reset; module owns ceremony via `bind_form` / dedicated flow later — advertise only when implemented |
 
 **Not a module capability:** account linking stays **Kithara’s story** (explicit multi-provider link in the user DB / harness). Auth adapters only prove identity for their provider — they do not advertise `accountLink`.
 
-**Bes** advertises `seedAdmin` only for MVP (`module.manifest.json`). **Argus** typically does **not** — IdP users are discovered/linked, not locally invented.
+**Bes** advertises `seedAdmin` + `updateBinding` for MVP (`module.manifest.json`). **Argus** typically advertises neither — IdP users are discovered/linked, not locally invented or password-edited on Kithara.
 
 ### `SeedAdminBinding`
 
@@ -59,7 +60,7 @@ message SeedAdminBindingResponse {
 }
 ```
 
-Seeded admins **must** change credentials before control (`must_rotate_credentials` on the user). Clear the flag via **`UpdateUserBinding`** ceremony `update` with the same **`bind_form`** bag — not via `Authenticate`.
+Seeded admins **must** change credentials before control (`must_rotate_credentials` on the user). Clear the flag via **`UpdateUserBinding`** ceremony `update` with the module’s **`bind_form`** bag after a fresh **`Authenticate`** (or redirect) — not by stuffing login credentials into the bind RPC, and not via `Authenticate` alone.
 
 **Security:** `SeedAdminBinding` is a privileged RPC. Only Kithara may invoke it — after Module Registry handshake, **mTLS** (client cert issued at Register) identifies Kithara→module calls. Modules must reject callers without a valid Kithara-issued cert. Same class of protection applies to `UpdateUserBinding`.
 
@@ -92,7 +93,7 @@ message UpdateUserBindingResponse {
 }
 ```
 
-UI is gated by **`bind_form` presence** on discovery (+ `seedAdmin` for seed). There is **no** separate `update_form` / password-reset form entity.
+UI is gated by **`updateBinding`** (or reserved `selfRegister`) on Register **and** `bind_form` on discovery (+ `seedAdmin` for seed). There is **no** separate `update_form` / password-reset form entity.
 
 ## Discovery UI (no module-name branching)
 
@@ -102,7 +103,7 @@ Clients render login and binding UI from discovery by switching on `ProviderDesc
 |---------|------------------|
 | `ui.login_form` | Render fields; POST → `Authenticate` |
 | `ui.redirect` | Navigate to `authorize_url`; return to **Kithara** callback |
-| `bind_form` (optional) | Render fields; POST → host binding proxy → `UpdateUserBinding` |
+| `bind_form` (optional) | Binding-data editor; clients re-auth via `login_form` / redirect **separately**, then POST bind bag only → `UpdateUserBinding` |
 
 Kithara merges descriptors and forwards them on `GET /api/auth/discovery`. It does not interpret field lists or authorize URLs beyond routing.
 
@@ -153,7 +154,7 @@ Invariants (frozen for v0.1):
 
 | Module | Discovery | Authenticate / tokens | Binding | `seedAdmin` |
 |--------|-----------|------------------------|---------|-------------|
-| **Bes** | `login_form` + `bind_form` | Verifies password; **mints** JWT (+ refresh) | Password fields in `bind_form`; ceremony bind/update | Yes (`SeedAdminBinding`) |
+| **Bes** | `login_form` + `bind_form` | Verifies password; **mints** JWT (+ refresh) | Opaque bind bag; step-up = Authenticate; caps `seedAdmin` + `updateBinding` | Yes (`SeedAdminBinding`) |
 | **Argus** | `redirect` | Completes OIDC; **forwards** IdP JWTs | Optional / JIT | No (typical) |
 | **Hecate** | future ceremony `ui` case | Completes WebAuthn; **mints** JWT (+ refresh) | TBD | TBD |
 

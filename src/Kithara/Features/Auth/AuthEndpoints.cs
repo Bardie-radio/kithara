@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Json.Serialization;
 using Bardie.Auth.V1;
 using Bardie.Harness.Auth;
+using Bardie.Harness.Auth.Models;
 using Bardie.Harness.Auth.Ports;
 using Microsoft.AspNetCore.Mvc;
 
@@ -170,16 +171,26 @@ public static class AuthEndpoints
                 ct)
             .ConfigureAwait(false);
 
-        var result = await orch.UpdateUserBindingAsync(
-                body.ProviderId,
-                userId,
-                payload,
-                BindingCeremony.Bind,
-                ct)
-            .ConfigureAwait(false);
+        UpdateUserBindingResult result;
+        try
+        {
+            result = await orch.UpdateUserBindingAsync(
+                    body.ProviderId,
+                    userId,
+                    payload,
+                    BindingCeremony.Bind,
+                    ct)
+                .ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            await persistence.DeleteUserAsync(userId, ct).ConfigureAwait(false);
+            throw;
+        }
 
         if (!result.Ok)
         {
+            await persistence.DeleteUserAsync(userId, ct).ConfigureAwait(false);
             return Results.Json(
                 new { error = result.FailureReason ?? "binding_rejected" },
                 statusCode: StatusCodes.Status400BadRequest);
