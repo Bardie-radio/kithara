@@ -14,10 +14,11 @@ public sealed record NowPlayingSnapshot(
     string TrackJobId,
     string? Title,
     string? Artist,
-    bool Paused)
+    bool Paused,
+    string? ArtworkUrl = null)
 {
     public NowPlayingInfo ToInfo() =>
-        new(ModuleSlug, TrackRef, TrackJobId, Title, Artist, Paused);
+        new(ModuleSlug, TrackRef, TrackJobId, Title, Artist, Paused, ArtworkUrl);
 }
 
 public sealed record NowPlayingInfo(
@@ -26,7 +27,8 @@ public sealed record NowPlayingInfo(
     string TrackJobId,
     string? Title,
     string? Artist,
-    bool Paused)
+    bool Paused,
+    string? ArtworkUrl = null)
 {
     /// <summary>ICY / REST display title: <c>Artist - Title</c>; empty when unknown (never raw trackRef).</summary>
     public string StreamTitle

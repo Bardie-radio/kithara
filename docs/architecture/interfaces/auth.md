@@ -8,9 +8,9 @@ Clients authenticate through **Kithara**, not by calling auth adapters on the pu
 |-------|-----------|--------------|-----|
 | **Login JWT** (+ refresh) | Auth module (issue or forward) | Kithara via module JWKS | Durable users (Bes/Argus/…) |
 | **Ephemeral guest JWT** (+ refresh) | **Kithara** | Kithara via its signing key | Guest-code joiners on a protected-control Struna |
-| **Managed-user credentials** | Static client admin flow (join secret) | Kithara | Beak-style tenancy users |
+| **Managed-user credentials** | Static client admin (future mTLS RPCs mint/reset) | Kithara | Beak-style tenancy users |
 
-Kithara does **not** mint auth-module **login** JWTs. It **does** mint JWTs for **ephemeral guest users** after guest-code exchange. **Join secrets** authenticate modules (register + static admin) — not end-user credentials.
+Kithara does **not** mint auth-module **login** JWTs. It **does** mint JWTs for **ephemeral guest users** after guest-code exchange. **Join secrets** bootstrap module `Register` (then Heartbeat is mTLS) — not end-user credentials and **not** standing static-module admin on `/api`.
 
 ```mermaid
 sequenceDiagram
@@ -79,7 +79,7 @@ Each exchange = **one new ephemeral guest user** for that joiner, scoped to the 
 | Ephemeral guest JWT / refresh | **Kithara** (mint) | Guest joiners after code exchange. Signing key: env if set, else auto-generated + persisted |
 | Guest code | **Kithara** (on Struna) | Bootstrap only — exchange for ephemeral guest session |
 | Listen token | **Kithara** (on Struna) | Protected playback `/stream/{slug}?token=` (no exchange) |
-| **Join secret** | **Kithara** config | Module identity — `Register`, heartbeats, static managed-user admin |
+| **Join secret** | **Kithara** config | Module identity — `Register` bootstrap only (Heartbeat = mTLS). Static managed-user **admin** → future mTLS client→host RPCs, not this secret on HTTP |
 
 ## User kinds (one DB)
 
@@ -100,7 +100,7 @@ Every client module **Registers over gRPC** like any other module ([grpc-module-
 | Mode | Meaning | Credential on `/api` |
 |------|---------|----------------------|
 | **user-aware** | End users log in | Bearer **login JWT** from an auth module |
-| **static** | Owns many **managed users** | **Join secret** (admin only) + **per-user credentials** (day-to-day) |
+| **static** | Owns many **managed users** | **Per-user credentials** for day-to-day `/api`; module admin via future **mTLS** RPCs |
 
 See [clients](../domains/clients.md).
 
@@ -134,7 +134,7 @@ See [clients](../domains/clients.md).
 
 ## Join secrets
 
-Long-lived secrets in Kithara config for **every** module (source, auth, client). Same credential authenticates `Register` / heartbeats at **container startup** and, for **static** clients, managed-user admin. Ordinary Struna/API work for static modules still uses each managed user’s own credentials.
+Long-lived secrets in Kithara config for **every** module (source, auth, client). They authenticate **`Register` only** (bootstrap before mTLS). **Heartbeat** and later work/admin RPCs use the module client cert. Ordinary Struna/API work for static modules uses each managed user’s own credentials — never the join secret on `/api`.
 
 **Related:** [domains/auth-adapters.md](../domains/auth-adapters.md) · [grpc-auth-adapter.md](grpc-auth-adapter.md) · [struna-access](../domains/struna-access.md) · [ADR 007](../adrs/007-auth-adapter-modules.md)
 

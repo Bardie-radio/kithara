@@ -88,6 +88,31 @@ public sealed class TuneLibrary
         return new EnsureTuneResult(existing.Id, Created: false);
     }
 
+    /// <summary>Lookup by module + external id (or raw track ref) for now-playing artwork enrichment.</summary>
+    public async Task<Tune?> FindByModuleRefAsync(
+        string moduleSlug,
+        string trackRef,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(moduleSlug) || string.IsNullOrWhiteSpace(trackRef))
+        {
+            return null;
+        }
+
+        var slug = moduleSlug.Trim().ToLowerInvariant();
+        var externalId = trackRef.Trim();
+
+        await using var db = await _dbContextFactory
+            .CreateDbContextAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return await db.Tunes.AsNoTracking()
+            .FirstOrDefaultAsync(
+                t => t.ModuleSlug == slug && t.ExternalId == externalId,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     private static string? NullIfWhiteSpace(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 

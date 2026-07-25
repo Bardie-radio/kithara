@@ -1,6 +1,6 @@
 # ADR 009: Struna Access and Routing
 
-**Status:** Accepted (amended: protected control = guest-code exchange → ephemeral guest user + Kithara-minted JWTs)
+**Status:** Accepted (amended: protected control = guest-code exchange → ephemeral guest user + Kithara-minted JWTs; `hidden` playback = public stream gate, list-omitted)
 
 ## Context
 
@@ -22,7 +22,7 @@ Streams need human-readable URLs, separate listen vs control permissions, and le
 
 **Slug:** user-chosen; unique among **alive** Strunas; freed on **DELETE** (or silent cleanup).
 
-**Playback access** (independent): `public` | `protected` (listen token) | `private` (full auth).
+**Playback access** (independent): `public` | `hidden` (same `/stream` gate as public; omitted from listen lists except owner/control/guest) | `protected` (listen token) | `private` (full auth).
 
 **Control access** (independent): `private` (auth) | `protected` (guest code → **ephemeral guest user** + Kithara-minted JWTs). **No public control.**
 

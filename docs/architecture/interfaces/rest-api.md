@@ -16,8 +16,10 @@ Client-facing HTTP API on Kithara (any client module). Base path: `/api`.
 | Caller | Credential on `/api` |
 |--------|----------------------|
 | User-aware clients | Bearer **user JWT** from an auth module |
-| Static clients | **Per-user credentials** for day-to-day; **join secret** only for managed-user admin |
+| Static clients | **Per-user credentials** for day-to-day — **no** join secret on `/api` |
 | Protected-control guests | Bearer **ephemeral guest JWT** after code exchange (Kithara-minted for a new ephemeral guest user) |
+
+Managed-user **admin** (create/list/revoke, credential mint/reset) is **not** a REST `/api` surface. Locked destination: **mTLS client→host** gRPC for static modules only — see [clients](../domains/clients.md).
 
 See [auth.md](auth.md).
 
@@ -39,6 +41,7 @@ Kithara verifies **login** JWTs via module JWKS; it does not mint them. It **doe
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/streams/{id}/guest/exchange` | **Unauthenticated** bootstrap. Body: short guest code → create **ephemeral guest user** + Kithara-signed JWT (+ refresh) |
+| POST | `/api/streams/by-slug/{slug}/guest/exchange` | Same as above; slug for client UX (code stays out of the URL) |
 
 Rate-limit (GUEST-XCHG-001): fixed window per IP + Struna; failures → `429` (failure lockout polish → Phase 8). Each exchange creates a **new** ephemeral guest user for that joiner (Struna-scoped; destroyed with the Struna). Do not send the guest code on every request. Details: [struna-access](../domains/struna-access.md).
 
@@ -48,8 +51,10 @@ Wire paths stay English (`/api/streams`); product language is **Struna**.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/streams/listen` | List Strunas the principal may **listen** to (owner + grant; public for everyone) |
+| GET | `/api/streams/listen` | List Strunas the principal may **listen** to (public for everyone; **hidden** omitted except owner/grant/control-guest; protected/private → owner + grant) |
 | GET | `/api/streams/control` | List Strunas the principal may **control** (owner + grant + protected-control guest) |
+| GET | `/api/streams/by-slug/{slug}` | **Unauthenticated.** Metadata when playback is **public** or **hidden**; else `404` |
+| GET | `/api/streams/by-slug/{slug}/now-playing` | **Unauthenticated.** Same open-playback gate as above |
 | POST | `/api/streams` | Create **encode-alive**: slug unique among alive Strunas, session FIFO, silence + FFmpeg, guest code; listen token when playback is protected |
 | GET | `/api/streams/{id}` | Get by internal GUID (listen **or** control ACL) |
 | POST | `/api/streams/{id}/pause` | Pause: silence feeder on + optional module `PauseTrack` (idempotent) |

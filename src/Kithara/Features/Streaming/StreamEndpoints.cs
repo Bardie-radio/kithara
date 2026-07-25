@@ -59,29 +59,56 @@ public static class StreamEndpoints
         http.Response.Headers.CacheControl = "no-cache";
         http.Response.Headers["icy-name"] = struna.Title;
         http.Response.Headers["icy-genre"] = "Bardie";
-        http.Response.Headers["icy-metaint"] = IcyMetaInt.ToString();
         http.Response.Headers.Append("Accept-Ranges", "none");
+
+        // Icecast convention: inject in-band metadata only when the client asks.
+        // VLC sends Icy-MetaData: 1; HTML5 <audio> does not — browsers treat ICY
+        // blocks as audio and stutter ("underfed"). Plain MP3 for everyone else.
+        var wantIcy = WantsIcyMetadata(http.Request);
+        if (wantIcy)
+        {
+            http.Response.Headers["icy-metaint"] = IcyMetaInt.ToString();
+        }
 
         // Disable response buffering so listeners hear live audio.
         var feature = http.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpResponseBodyFeature>();
         feature?.DisableBuffering();
 
-        await using var icy = new IcyMetadataStream(
-            http.Response.Body,
-            () => neck.GetStreamTitle(struna.Id),
-            IcyMetaInt);
-
         try
         {
-            await foreach (var chunk in session.Fanout.SubscribeAsync(ct).ConfigureAwait(false))
+            if (wantIcy)
             {
-                await icy.WriteAudioAsync(chunk, ct).ConfigureAwait(false);
+                await using var icy = new IcyMetadataStream(
+                    http.Response.Body,
+                    () => neck.GetStreamTitle(struna.Id),
+                    IcyMetaInt);
+
+                await foreach (var chunk in session.Fanout.SubscribeAsync(ct).ConfigureAwait(false))
+                {
+                    await icy.WriteAudioAsync(chunk, ct).ConfigureAwait(false);
+                }
+            }
+            else
+            {
+                await foreach (var chunk in session.Fanout.SubscribeAsync(ct).ConfigureAwait(false))
+                {
+                    await http.Response.Body.WriteAsync(chunk, ct).ConfigureAwait(false);
+                    await http.Response.Body.FlushAsync(ct).ConfigureAwait(false);
+                }
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             // Listener disconnected.
         }
+    }
+
+    /// <summary>True when the client opts into SHOUTcast/Icecast in-band metadata.</summary>
+    private static bool WantsIcyMetadata(HttpRequest request)
+    {
+        var value = request.Headers["Icy-MetaData"].FirstOrDefault()
+            ?? request.Headers["Icy-Metadata"].FirstOrDefault();
+        return string.Equals(value, "1", StringComparison.Ordinal);
     }
 
     private static async Task<bool> AuthorizePlaybackAsync(
@@ -94,6 +121,8 @@ public static class StreamEndpoints
         switch (struna.PlaybackAccess)
         {
             case PlaybackAccess.Public:
+            case PlaybackAccess.Hidden:
+                // URL is enough — hidden is list-omitted, not stream-gated.
                 return true;
 
             case PlaybackAccess.Protected:
@@ -123,7 +152,7 @@ public static class StreamEndpoints
 
                 var principal = await AuthPrincipal.ResolveAsync(http.User, persistence, authHarness, ct)
                     .ConfigureAwait(false);
-                if (principal is null || !StrunaAccess.CanListen(struna, principal.UserId))
+                if (principal is null || !StrunaAccess.CanListen(struna, principal))
                 {
                     http.Response.StatusCode = StatusCodes.Status403Forbidden;
                     await http.Response.WriteAsJsonAsync(new { error = "forbidden" }, ct)

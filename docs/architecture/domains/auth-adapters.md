@@ -91,7 +91,7 @@ Users may **explicitly** link/merge bindings from different providers (prove bot
 
 ## Join secrets vs user JWTs
 
-**Join secrets** authenticate modules (register / heartbeats / static admin). They are not user session credentials. **Static** client modules (e.g. Beak) use their join secret only to administer **module-managed users**; day-to-day API calls use **per-user credentials** — see [clients](clients.md).
+**Join secrets** bootstrap module `Register` (Heartbeat is mTLS). They are not user session credentials and must not be used as standing `/api` admin keys. **Static** client modules (e.g. Beak) will administer **module-managed users** over planned **mTLS client→host** RPCs; day-to-day API calls use **per-user credentials** — see [clients](clients.md).
 
 **Related:** [interfaces/auth.md](../interfaces/auth.md) · [interfaces/grpc-auth-adapter.md](../interfaces/grpc-auth-adapter.md) · [ADR 007](../adrs/007-auth-adapter-modules.md)
 

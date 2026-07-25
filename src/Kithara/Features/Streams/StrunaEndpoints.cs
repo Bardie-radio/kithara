@@ -27,6 +27,12 @@ public static class StrunaEndpoints
         // Bootstrap is unauthenticated (guest code only); GUEST-XCHG-001 rate-limits per IP + Struna.
         root.MapPost("/{id:guid}/guest/exchange", GuestExchangeAsync)
             .RequireRateLimiting("guest-exchange");
+        root.MapPost("/by-slug/{slug}/guest/exchange", GuestExchangeBySlugAsync)
+            .RequireRateLimiting("guest-exchange");
+
+        // Open playback (public | hidden): no Bearer — shared player URL is enough.
+        root.MapGet("/by-slug/{slug}", GetOpenBySlugAsync);
+        root.MapGet("/by-slug/{slug}/now-playing", NowPlayingBySlugAsync);
 
         var group = root.MapGroup(string.Empty)
             .RequireAuthorization()
@@ -65,7 +71,7 @@ public static class StrunaEndpoints
     }
 
     private static Task<IResult> ListListenAsync(HttpContext http, Neck neck, CancellationToken ct) =>
-        ListFilteredAsync(http, neck, ct, (s, p) => StrunaAccess.CanListen(s, p.UserId));
+        ListFilteredAsync(http, neck, ct, StrunaAccess.AppearsOnListenList);
 
     private static Task<IResult> ListControlAsync(HttpContext http, Neck neck, CancellationToken ct) =>
         ListFilteredAsync(http, neck, ct, StrunaAccess.CanControl);
@@ -207,12 +213,73 @@ public static class StrunaEndpoints
     private static async Task<IResult> SkipAsync(Guid id, Neck neck, CancellationToken ct) =>
         MapPlayResult(await neck.SkipAsync(id, ct).ConfigureAwait(false));
 
-    private static IResult NowPlayingAsync(Guid id, Neck neck)
+    private static async Task<IResult> NowPlayingAsync(
+        Guid id,
+        Neck neck,
+        TuneLibrary tunes,
+        CancellationToken ct) =>
+        await BuildNowPlayingResultAsync(id, neck, tunes, ct).ConfigureAwait(false);
+
+    private static async Task<IResult> GetOpenBySlugAsync(string slug, Neck neck, CancellationToken ct)
+    {
+        var struna = await neck.GetStrunaBySlugAsync(slug, ct).ConfigureAwait(false);
+        if (struna is null || !StrunaAccess.IsOpenPlayback(struna.PlaybackAccess))
+        {
+            return Results.NotFound(new { error = "not_found" });
+        }
+
+        return Results.Ok(MapStruna(struna));
+    }
+
+    private static async Task<IResult> NowPlayingBySlugAsync(
+        string slug,
+        Neck neck,
+        TuneLibrary tunes,
+        CancellationToken ct)
+    {
+        var struna = await neck.GetStrunaBySlugAsync(slug, ct).ConfigureAwait(false);
+        if (struna is null || !StrunaAccess.IsOpenPlayback(struna.PlaybackAccess))
+        {
+            return Results.NotFound(new { error = "not_found" });
+        }
+
+        return await BuildNowPlayingResultAsync(struna.Id, neck, tunes, ct).ConfigureAwait(false);
+    }
+
+    private static async Task<IResult> BuildNowPlayingResultAsync(
+        Guid id,
+        Neck neck,
+        TuneLibrary tunes,
+        CancellationToken ct)
     {
         var now = neck.GetNowPlaying(id);
         if (now is null)
         {
             return Results.Ok(new { playing = false });
+        }
+
+        var artworkUrl = now.ArtworkUrl;
+        var title = now.Title;
+        var artist = now.Artist;
+        if (string.IsNullOrWhiteSpace(artworkUrl)
+            || string.IsNullOrWhiteSpace(title)
+            || string.IsNullOrWhiteSpace(artist))
+        {
+            var tune = await tunes
+                .FindByModuleRefAsync(now.ModuleSlug, now.TrackRef, ct)
+                .ConfigureAwait(false);
+            if (tune is not null)
+            {
+                artworkUrl = string.IsNullOrWhiteSpace(artworkUrl) ? tune.ArtworkUrl : artworkUrl;
+                title = string.IsNullOrWhiteSpace(title) ? tune.Title : title;
+                artist = string.IsNullOrWhiteSpace(artist) ? tune.Artist : artist;
+            }
+        }
+
+        var streamTitle = BuildStreamTitle(artist, title);
+        if (string.IsNullOrWhiteSpace(streamTitle))
+        {
+            streamTitle = now.StreamTitle;
         }
 
         return Results.Ok(new
@@ -222,10 +289,28 @@ public static class StrunaEndpoints
             module = now.ModuleSlug,
             track_ref = now.TrackRef,
             track_job_id = now.TrackJobId,
-            title = now.Title,
-            artist = now.Artist,
-            stream_title = now.StreamTitle,
+            title,
+            artist,
+            stream_title = streamTitle,
+            artwork_url = artworkUrl,
         });
+    }
+
+    private static string BuildStreamTitle(string? artist, string? title)
+    {
+        var hasArtist = !string.IsNullOrWhiteSpace(artist);
+        var hasTitle = !string.IsNullOrWhiteSpace(title);
+        if (hasArtist && hasTitle)
+        {
+            return $"{artist!.Trim()} - {title!.Trim()}";
+        }
+
+        if (hasTitle)
+        {
+            return title!.Trim();
+        }
+
+        return hasArtist ? artist!.Trim() : string.Empty;
     }
 
     private static async Task<IResult> ListQueueAsync(Guid id, Neck neck, CancellationToken ct)
@@ -328,7 +413,7 @@ public static class StrunaEndpoints
                     hit.Title,
                     hit.Artist,
                     null,
-                    null,
+                    ArtworkFromHit(hit),
                     null,
                     null,
                     null),
@@ -366,8 +451,42 @@ public static class StrunaEndpoints
             return Results.NotFound(new { error = "not_found" });
         }
 
-        var exchanged = await guests.ExchangeAsync(id, body.GuestCode ?? body.Code!, ct)
+        return await CompleteGuestExchangeAsync(id, body.GuestCode ?? body.Code!, guests, ct)
             .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Slug-based exchange for client UX (share <c>/control/{slug}</c>; code stays out of the URL).
+    /// </summary>
+    private static async Task<IResult> GuestExchangeBySlugAsync(
+        string slug,
+        [FromBody] GuestExchangeBody body,
+        Neck neck,
+        GuestJwtService guests,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(body.GuestCode ?? body.Code))
+        {
+            return Results.BadRequest(new { error = "guest_code is required." });
+        }
+
+        var struna = await neck.GetStrunaBySlugAsync(slug, ct).ConfigureAwait(false);
+        if (struna is null)
+        {
+            return Results.NotFound(new { error = "not_found" });
+        }
+
+        return await CompleteGuestExchangeAsync(struna.Id, body.GuestCode ?? body.Code!, guests, ct)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task<IResult> CompleteGuestExchangeAsync(
+        Guid strunaId,
+        string guestCode,
+        GuestJwtService guests,
+        CancellationToken ct)
+    {
+        var exchanged = await guests.ExchangeAsync(strunaId, guestCode, ct).ConfigureAwait(false);
         if (exchanged is null)
         {
             return Results.Json(new { error = "invalid_guest_code" }, statusCode: StatusCodes.Status401Unauthorized);
@@ -590,6 +709,7 @@ public static class StrunaEndpoints
         {
             "protected" => PlaybackAccess.Protected,
             "private" => PlaybackAccess.Private,
+            "hidden" => PlaybackAccess.Hidden,
             _ => PlaybackAccess.Public,
         };
 
@@ -602,6 +722,17 @@ public static class StrunaEndpoints
 
     private static Guid? ParseGuid(string? value) =>
         Guid.TryParse(value, out var id) ? id : null;
+
+    private static string? ArtworkFromHit(CachedSearchHit hit)
+    {
+        if (hit.Metadata.TryGetValue("artwork_url", out var url)
+            && !string.IsNullOrWhiteSpace(url))
+        {
+            return url.Trim();
+        }
+
+        return null;
+    }
 
     public sealed class CreateStrunaBody
     {

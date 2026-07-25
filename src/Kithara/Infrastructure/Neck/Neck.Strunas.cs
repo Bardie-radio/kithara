@@ -108,6 +108,63 @@ public sealed partial class Neck
     }
 
     /// <summary>
+    /// After host restart: DB Strunas are still "alive" but encoders/FIFOs are not.
+    /// Recreate session FIFO + silence + FFmpeg for each row so <c>/stream</c> and play work again.
+    /// </summary>
+    public async Task RehydrateAliveStrunasAsync(CancellationToken cancellationToken = default)
+    {
+        var strunas = await ListStrunasAsync(cancellationToken).ConfigureAwait(false);
+        if (strunas.Count == 0)
+        {
+            return;
+        }
+
+        _logger.LogInformation("Rehydrating encode-alive for {Count} Struna(s)", strunas.Count);
+        foreach (var struna in strunas)
+        {
+            try
+            {
+                await EnsureEncodeAliveAsync(struna.Id, struna.Slug, recreateFifo: true, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Failed to rehydrate encode session for Struna {Id} ({Slug})",
+                    struna.Id,
+                    struna.Slug);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Ensures silence + FFmpeg are running for an alive Struna (idempotent when already started).
+    /// </summary>
+    public async Task EnsureEncodeAliveAsync(
+        Guid strunaId,
+        string slug,
+        bool recreateFifo = false,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(slug);
+
+        if (_encoder.TryGetSession(strunaId, out _))
+        {
+            return;
+        }
+
+        if (recreateFifo)
+        {
+            // Prior process left a FIFO node with no peers — recreate so RDWR attach is clean.
+            await RemoveStrunaFifoAsync(strunaId, cancellationToken).ConfigureAwait(false);
+        }
+
+        var fifo = await EnsureStrunaFifoAsync(strunaId, cancellationToken).ConfigureAwait(false);
+        await _encoder.StartAsync(strunaId, slug, fifo, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Tears down a Struna: StopTrack → silence/FFmpeg stop → remove FIFO → destroy guests → free slug.
     /// Returns destroyed guest user ids so Search can clear their result <b>cache</b> (not search history).
     /// </summary>

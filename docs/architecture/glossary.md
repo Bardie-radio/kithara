@@ -19,7 +19,7 @@ Dual naming: **codename** (musical instruments theme) + **plain English**. When 
 | **Cauda** | Telegram bot client | Future **user-aware** client: remote Struna control from Telegram chats |
 | **Client module** | User-facing integration | Deployable surface (Plume, Beak, Cauda, …) that calls Kithara REST |
 | **User-aware client** | Login UI module | Client whose end users authenticate with JWT from an auth module (Plume, Cauda) |
-| **Static client** | Bot / keyed UI module | Client with no human Bardie login; uses a **join secret** plus **module-managed users** with per-user credentials (Beak) |
+| **Static client** | Bot / keyed UI module | Client with no human Bardie login; **Registers** with a join secret, then day-to-day `/api` as **module-managed users** (Beak). Module admin → planned mTLS RPCs |
 | **Module-managed user** | Managed user | Alias — see **Managed user** above |
 | **Magpie** | YouTube / ytdl source | MVP: search + play via ytdl; cache-first Tune library; writes PCM to session FIFO |
 | **Starling** | External / local stream source | Future: re-broadcast direct audio input; sparse Tune (URI, no blob) for history/queue |
@@ -39,7 +39,7 @@ Dual naming: **codename** (musical instruments theme) + **plain English**. When 
 | **Listen token** | Playback secret | Query credential for **protected** playback (Kithara-owned) |
 | **Guest code** | Control bootstrap | Short Kithara-owned code **per Struna**; **exchange only** → new ephemeral guest user + Kithara-minted JWTs (rate-limited) |
 | **Guest JWT** | Ephemeral session token | Kithara-signed Bearer (+ refresh) for an ephemeral guest user; Struna-scoped control |
-| **Join secret** | Module credential | Long-lived secret in Kithara/Compose config — registers source/auth/client modules and (for static clients) administers managed users. One credential class (not a separate “bot token”). |
+| **Join secret** | Module credential | Long-lived secret in Kithara/Compose config — **Register bootstrap** for source/auth/client modules. Not a standing `/api` admin key; static managed-user admin is planned as mTLS client→host RPCs. |
 | **Search result cache** | Playable search refs | Global search results retained per principal so they can play/queue by ref; guests cleared on Struna teardown; durable/managed until next search or configurable timeout |
 | **Blob storage** | Library object store | Kithara-owned pluggable backend for Tune bytes (local volume, S3-compatible, WebDAV later) |
 | **Storage key** | Opaque blob id | Durable pointer on a Tune; drivers resolve to file/object — not a host path |

@@ -124,7 +124,7 @@ internal static class StrunaResourceGate
         {
             var allowed = requireControl
                 ? StrunaAccess.CanControl(struna, principal)
-                : StrunaAccess.CanListen(struna, principal.UserId) || StrunaAccess.CanControl(struna, principal);
+                : StrunaAccess.CanListen(struna, principal) || StrunaAccess.CanControl(struna, principal);
 
             if (!allowed)
             {

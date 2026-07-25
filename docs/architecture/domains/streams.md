@@ -41,7 +41,7 @@ Neck lives **inside Kithara** — not a separate container. FFmpeg process owner
 
 ## Target schema fields
 
-- `PlaybackAccess`: public | protected | private
+- `PlaybackAccess`: public | hidden | protected | private
 - `ControlAccess`: private | protected
 - `OwnerUserId` + grant list for private control ([auth ACL](../interfaces/auth.md))
 - `ListenToken`, `GuestCode` (nullable; owned by Kithara) — guest code is exchange-only; each exchange creates an ephemeral guest user + JWT

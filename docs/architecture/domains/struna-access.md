@@ -4,6 +4,7 @@
 flowchart TB
   subgraph playback [Playback /stream/slug]
     PP[public]
+    PH[hidden URL-only]
     PR[protected listen token]
     PV[private full auth]
   end
@@ -19,7 +20,8 @@ Playback and control access are **fully independent** per Struna. Plume’s remo
 
 | Mode | Legacy players | Web / Plume |
 |------|----------------|-------------|
-| **public** | `/stream/lofi` | Works |
+| **public** | `/stream/lofi` | Works (anonymous player OK) |
+| **hidden** | `/stream/lofi` (same gate) | Works via shared `/player/{slug}` URL; **not** on listen lists |
 | **protected** | `/stream/lofi?token=...` (MVP) | Session/cookie |
 | **private** | Not compatible (no OIDC in VLC) | Full auth |
 
@@ -45,8 +47,15 @@ Token generated at creation (**Kithara-owned** Struna secret); owner can rotate.
 
 | Path | Filter |
 |------|--------|
-| `GET /api/streams/listen` | Principal may listen (public for all; protected/private → owner **or** grant) |
+| `GET /api/streams/listen` | Principal may listen (**public** for all; **hidden** omitted except owner/grant/control-guest; protected/private → owner **or** grant) |
 | `GET /api/streams/control` | Principal may DJ (owner **or** grant **or** protected-control ephemeral guest for that Struna) |
+
+Unauthenticated open-playback reads (public **or** hidden — URL is enough; no secrets):
+
+| Path | Notes |
+|------|--------|
+| `GET /api/streams/by-slug/{slug}` | Metadata when playback is public/hidden; otherwise `404` |
+| `GET /api/streams/by-slug/{slug}/now-playing` | Same gate; powers anonymous Plume player polls |
 
 Today’s ACL is owner + grant (+ guest for protected control). **Phase 6 contract:** owner-only grant CRUD under `/api/streams/{id}/grants` and managed-user **permission ceiling** enforcement on create / grant mutations — see [auth](../interfaces/auth.md) and [rest-api](../interfaces/rest-api.md). Listen-token holders are gated on `/stream/{slug}` (Phase 5), not via these lists.
 
@@ -102,12 +111,13 @@ Party DJ is still not a durable account — but it **is** a real row in Kithara�
 |----------|---------|----------|
 | public | private | Open radio; owner DJs |
 | public | protected | Party — anyone listens; guests exchange code then queue |
+| hidden | private | Share a player URL; strangers cannot browse it on home |
 | protected | protected | Listen token URL + guest exchange for control |
 | private | private | Fully locked |
 
 ## Bots / static clients
 
-**Managed users** (day-to-day control) plus module **join secret** for admin only — see [clients](clients.md). For listen-only bots, a **protected** Struna with a known listen token also works.
+**Managed users** (day-to-day control) plus planned **mTLS module admin** for create/revoke — see [clients](clients.md). For listen-only bots, a **protected** Struna with a known listen token also works.
 
 **Related:** [interfaces/http-stream-output.md](../interfaces/http-stream-output.md) · [interfaces/auth.md](../interfaces/auth.md) · [ADR 009](../adrs/009-struna-access-and-routing.md)
 

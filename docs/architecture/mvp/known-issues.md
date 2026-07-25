@@ -12,6 +12,7 @@ IDs use `SURFACE-TOPIC-NNN` (see [security-audit ID scheme](security-audit.md#id
 |----|-----|---------|----------|
 | [NECK-PCM-001](#neck-pcm-001--canonical-pcm-format-constants-are-duplicated) | P2 | Session PCM rate/channels hard-coded in several places | [kithara#25](https://github.com/Bardie-radio/kithara/issues/25) |
 | [NECK-SWP-001](#neck-swp-001--orphan-writer-sweep-runs-on-every-play-including-new-strunas) | P2 | `StopOrphanWriters` / `StopTracksForStruna` on the hot play path | [kithara#26](https://github.com/Bardie-radio/kithara/issues/26) |
+| [STREAM-ACL-001](#stream-acl-001--protected-canlisten-ignores-listen-token-holders) | P3 | `CanListen` / listen list for **protected** are owner+grant only; token holders are stream-only today | backlog |
 
 ---
 
@@ -61,6 +62,22 @@ That bulk cancel exists because Neck can lose `track_job_id` while Magpie still 
 2. Keep Struna-scoped cancel for rare recovery (delete / proven desync / skip with unknown orphans), not every `play`.
 3. Harden job-map / TrackStatus continuity (NECK-JOB-001) so orphans become exceptional.
 4. Demote or drop `StopTracksForStruna` from the common contract once Neck no longer needs it for play.
+
+---
+
+## STREAM-ACL-001 — Protected `CanListen` ignores listen-token holders
+
+**Severity:** P3 (design gap; stream gate is correct)  
+**Component:** `StrunaAccess.CanListen` / `AppearsOnListenList` vs Stream Server  
+**Owner:** Phase 8 / access-model polish
+
+**Tracking:** backlog (no GitHub issue yet)
+
+Protected playback is **token-based** on `/stream/{slug}?token=…` ([struna-access](../domains/struna-access.md)). REST `CanListen` / listen-list membership today only check **owner + control grant** — same as private for list purposes. Holders of the listen token can play audio but do not appear as “may listen” principals on GUID discover / home lists, and Plume cannot treat “I have the token” as session ACL without a Bearer exchange (intentionally omitted for legacy players).
+
+**Failure mode (design):** token-only listeners are second-class on REST surfaces; any future “listenable to me” UX that keys off `CanListen` under-counts them.
+
+**Remediation sketch (later):** decide whether listen-token capability should ever mint a short-lived listen principal, stay stream-only forever, or get a separate discovery path — do not silently widen `CanListen` to “everyone with the query param” on authenticated REST.
 
 ---
 
