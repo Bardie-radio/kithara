@@ -29,8 +29,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\libs\Bardie.Contracts\Bardie.Contracts.csproj" />
-    <ProjectReference Include="..\..\libs\Bardie.Module.Channel\Bardie.Module.Channel.csproj" />
+    <ProjectReference Include="..\..\..\logos\src\Bardie.Logos.Contracts\Bardie.Logos.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\logos\src\Bardie.Logos.Channel\Bardie.Logos.Channel.csproj" />
     <ProjectReference Include="..\..\libs\Bardie.Harness.Auth\Bardie.Harness.Auth.csproj" />
     <ProjectReference Include="..\..\libs\Bardie.Harness.Source\Bardie.Harness.Source.csproj" />
   </ItemGroup>

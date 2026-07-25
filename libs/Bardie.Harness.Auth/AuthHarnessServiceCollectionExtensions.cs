@@ -1,5 +1,5 @@
 using Bardie.Harness.Auth.Catalog;
-using Bardie.Module.Channel;
+using Bardie.Logos.Channel;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bardie.Harness.Auth;

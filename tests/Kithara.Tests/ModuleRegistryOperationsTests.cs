@@ -1,6 +1,6 @@
 using Bardie.Harness.Auth;
-using Bardie.Module.Channel;
-using Bardie.Module.Channel.Certificates;
+using Bardie.Logos.Channel;
+using Bardie.Logos.Channel.Certificates;
 using Bardie.Modules.V1;
 using Bardie.Harness.Source;
 using Bardie.Harness.Source.Catalog;

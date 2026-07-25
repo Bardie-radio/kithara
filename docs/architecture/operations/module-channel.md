@@ -1,8 +1,8 @@
 # ModuleChannel (mTLS + participant library)
 
-Kithara (and future external hosts) embed **`Bardie.Module.Channel`** for module gRPC channel security. Modules (Bes, Magpie, …) embed the same package for **manifest identity**, Register/Heartbeat, and work-port TLS. Mesh join RPCs stay host-owned; **crypto, bootstrap policy, and static module identity live in the library** so embedders do not reinvent Kestrel/GrpcChannel wiring.
+Kithara (and future external hosts) embed **`Bardie.Logos.Channel`** for module gRPC channel security. Modules (Bes, Magpie, …) embed the same package for **manifest identity**, Register/Heartbeat, and work-port TLS. Mesh join RPCs stay host-owned; **crypto, bootstrap policy, and static module identity live in the library** so embedders do not reinvent Kestrel/GrpcChannel wiring.
 
-**Library home:** [`libs/Bardie.Module.Channel`](../../../libs/Bardie.Module.Channel/README.md) · contracts: [`Bardie.Contracts`](../../../libs/Bardie.Contracts/README.md) · participant bootstrap: [`Bardie.Module.Hosting`](../../../libs/Bardie.Module.Hosting/README.md) · auth adapter kit: [`Bardie.Module.Auth`](../../../libs/Bardie.Module.Auth/README.md)
+**Library home (Logos):** [`Bardie.Logos.Channel`](https://github.com/Bardie-radio/logos/tree/main/src/Bardie.Logos.Channel) · contracts: [`Bardie.Logos.Contracts`](https://github.com/Bardie-radio/logos/tree/main/src/Bardie.Logos.Contracts) · participant bootstrap: [`Bardie.Logos.Hosting`](https://github.com/Bardie-radio/logos/tree/main/src/Bardie.Logos.Hosting) · auth adapter kit: [`Bardie.Module.Auth`](https://github.com/Bardie-radio/kithara-logos-auth) (kind SDK on Logos)
 
 ## Why it exists
 
@@ -12,8 +12,8 @@ Modules dial the host to `Register`, then speak mTLS for Heartbeat and work RPCs
 
 | Context | How modules reference libs |
 |---------|----------------------------|
-| Multi-root workspace / Local Compose sibling layout | If `../kithara/libs` exists → **`ProjectReference`** (Bes `Directory.Build.props`) |
-| Standalone CI / published consumers | **`PackageReference`** to versioned `Bardie.Contracts` + `Bardie.Module.Channel` (`0.1.0`); participants also take `Bardie.Module.Hosting` (+ `Bardie.Module.Auth` when minting JWTs) |
+| Multi-root workspace / Local Compose sibling layout | If `../logos/src` exists → **`ProjectReference`** (Bes/Magpie/Plume `Directory.Build.props`); kind SDKs from `../kithara-logos-auth` / `../kithara-logos-source` |
+| Standalone CI / published consumers | **`PackageReference`** to versioned `Bardie.Logos.Contracts` + `Bardie.Logos.Channel` (`0.1.0`); participants also take `Bardie.Logos.Hosting` (+ `Bardie.Module.Auth` when minting JWTs) |
 
 Do **not** git-submodule Kithara, copy `.proto`/`.cs` into module repos, or path-include protos from another repo in a module csproj.
 
@@ -21,8 +21,8 @@ Do **not** git-submodule Kithara, copy `.proto`/`.cs` into module repos, or path
 
 | Package | Owns |
 |---------|------|
-| **`Bardie.Module.Channel`** | Manifest, Register/Heartbeat, certs, work-port Kestrel TLS, generic `MODULE_*` / `JOIN_SECRET` / `GRPC_ADVERTISE_ADDRESS` |
-| **`Bardie.Module.Hosting`** | ASP.NET Program bootstrap (`AddBardieModuleHosting`), `/healthz`, OTel from manifest, **Bardie Compose aliases** (`KITHARA_*` / `BARDIE_*`) |
+| **`Bardie.Logos.Channel`** | Manifest, Register/Heartbeat, certs, work-port Kestrel TLS, generic `MODULE_*` / `JOIN_SECRET` / `GRPC_ADVERTISE_ADDRESS` |
+| **`Bardie.Logos.Hosting`** | ASP.NET Program bootstrap (`AddBardieModuleHosting`), `/healthz`, OTel from manifest, **Bardie Compose aliases** (`KITHARA_*` / `BARDIE_*`) |
 | **`Bardie.Module.Auth`** | Optional JWT mint / JWKS Register customizer / thin `AuthAdapterModuleBase` for adapters that mint login JWTs |
 
 Channel stays alias-agnostic so non-Bardie hosts can embed it without Compose name knowledge.
@@ -122,10 +122,10 @@ Env knobs: [configuration.md](configuration.md) (`BARDIE_MODULE_MTLS_BOOTSTRAP`,
 
 | Library (host) | Host (Kithara) | Library (participant) |
 |----------------|----------------|-------------------------|
-| Cert issue/validate, Kestrel helper, interceptor, outbound dial factory (`Bardie.Module.Channel`) | Module Registry **service**, `BARDIE_JOIN_SECRETS`, port binding, catalog projection | Channel: manifest, Register→PEM, Heartbeat, work-port TLS. Hosting: Program bootstrap + Compose env. Auth kit: JWT/JWKS when minting |
+| Cert issue/validate, Kestrel helper, interceptor, outbound dial factory (`Bardie.Logos.Channel`) | Module Registry **service**, `BARDIE_JOIN_SECRETS`, port binding, catalog projection | Channel: manifest, Register→PEM, Heartbeat, work-port TLS. Hosting: Program bootstrap + Compose env. Auth kit: JWT/JWKS when minting |
 
 ## Related
 
-- [grpc-module-registry.md](../interfaces/grpc-module-registry.md) · [grpc-auth-adapter.md](../interfaces/grpc-auth-adapter.md) · [security-audit](../mvp/security-audit.md) · [configuration.md](configuration.md) · [Module.Hosting README](../../../libs/Bardie.Module.Hosting/README.md) · [Module.Auth README](../../../libs/Bardie.Module.Auth/README.md)
+- [grpc-module-registry.md](../interfaces/grpc-module-registry.md) · [grpc-auth-adapter.md](../interfaces/grpc-auth-adapter.md) · [security-audit](../mvp/security-audit.md) · [configuration.md](configuration.md) · [Logos](../logos.md) · [Logos.Hosting](https://github.com/Bardie-radio/logos/tree/main/src/Bardie.Logos.Hosting) · [Module.Auth](https://github.com/Bardie-radio/kithara-logos-auth)
 
 **Read next:** [grpc-module-registry.md](../interfaces/grpc-module-registry.md)

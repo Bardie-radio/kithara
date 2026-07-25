@@ -27,8 +27,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Kithara\Kithara.csproj" />
-    <ProjectReference Include="..\..\libs\Bardie.Module.Channel\Bardie.Module.Channel.csproj" />
-    <ProjectReference Include="..\..\libs\Bardie.Module.Auth\Bardie.Module.Auth.csproj" />
+    <ProjectReference Include="..\..\..\logos\src\Bardie.Logos.Channel\Bardie.Logos.Channel.csproj" />
+    <ProjectReference Include="..\..\..\kithara-logos-auth\src\Bardie.Module.Auth\Bardie.Module.Auth.csproj" />
     <ProjectReference Include="..\..\libs\Bardie.Harness.Auth\Bardie.Harness.Auth.csproj" />
     <ProjectReference Include="..\..\libs\Bardie.Harness.Source\Bardie.Harness.Source.csproj" />
   </ItemGroup>

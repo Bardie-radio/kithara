@@ -1,4 +1,4 @@
-using Bardie.Module.Channel.Manifest;
+using Bardie.Logos.Channel.Manifest;
 using Bardie.Modules.V1;
 using Bardie.Source.V1;
 using Grpc.Core;

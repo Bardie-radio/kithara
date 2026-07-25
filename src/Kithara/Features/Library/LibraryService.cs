@@ -1,5 +1,5 @@
 using Bardie.Library.V1;
-using Bardie.Module.Channel.Hosting;
+using Bardie.Logos.Channel.Hosting;
 using Grpc.Core;
 using Kithara.Infrastructure.Storage;
 

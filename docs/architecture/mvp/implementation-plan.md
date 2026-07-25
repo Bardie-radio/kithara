@@ -148,7 +148,7 @@ Same contract on Bes/Magpie/Plume from their first runnable container ([ADR 008]
 
 ### Work
 
-1. **Own the** `.proto` **files in** `libs/Bardie.Contracts` **and publish a versioned package** (`Bardie.Contracts`) for module authors — single source of truth for:
+1. **Own the** `.proto` **files in Logos** (`Bardie.Logos.Contracts`, formerly `libs/Bardie.Contracts`) **and publish a versioned package** for module authors — single source of truth for:
   - `ModuleRegistry` on Kithara (modules dial in; mTLS cert issued on success)
   - `AuthAdapter` work RPCs (Kithara dials per call) — **done** in Phase 2
   - `SourceModule` + `BlobStorage` + `Library` — **Phase 3 freeze** (current)
@@ -172,7 +172,7 @@ Same contract on Bes/Magpie/Plume from their first runnable container ([ADR 008]
 
 | Repo                | Follow-up                                                                 |
 | ------------------- | ------------------------------------------------------------------------- |
-| **magpie**, **bes** | `PackageReference` / sibling `ProjectReference` to `Bardie.Contracts`     |
+| **magpie**, **bes** | `PackageReference` / sibling `ProjectReference` to `Bardie.Logos.Contracts` (+ Channel/Hosting; Auth/Source kind packages) |
 | **plume**           | REST client stubs from rest-api                                           |
 | **org**             | Join-secret / volume notes in deployment narrative when attach is decided |
 
@@ -183,13 +183,13 @@ Same contract on Bes/Magpie/Plume from their first runnable container ([ADR 008]
 
 ## Phase 1 — Kithara skeleton
 
-**Status: complete.** Dual listeners, Module Registry, `Bardie.Module.Channel` mTLS (`auto`  `preshared`), harness lib scaffolds, ADR-006 EF, OTel `bardie.kithara`.
+**Status: complete.** Dual listeners, Module Registry, Logos Channel mTLS (`auto` / `preshared`), harness lib scaffolds, ADR-006 EF, OTel `bardie.kithara`. Mesh substrate later extracted to sibling Lib repos — see [logos.md](../logos.md).
 
 **Why:** Everything else hangs off registry, persistence, HTTP/gRPC hosts, and telemetry plumbing.
 
 ### Work
 
-1. **Feature-first layout** under `src/Kithara` + packable `libs/` (Harness.Auth/Source, Module.Channel/Hosting/Auth) — see [02-internal-structure](../overview/02-internal-structure.md) and [module-channel](../operations/module-channel.md):
+1. **Feature-first layout** under `src/Kithara` + host-only `libs/` harnesses; packable mesh packages live in Logos / kithara-logos-* — see [02-internal-structure](../overview/02-internal-structure.md) and [module-channel](../operations/module-channel.md):
 
 ```text
 src/Kithara/
@@ -198,20 +198,17 @@ src/Kithara/
     Auth/ Search/ Streams/ Streaming/ Library/   # Bardie wrappers (filled later)
   Infrastructure/
     Persistence/ Observability/ Storage/ Neck/
-libs/
-  Bardie.Contracts/
-  Bardie.Module.Channel/
-  Bardie.Module.Hosting/
-  Bardie.Module.Auth/
+libs/                         # host-only
   Bardie.Harness.Auth/
   Bardie.Harness.Source/
+# Sibling: logos (Bardie.Logos.*), kithara-logos-auth, kithara-logos-source
 ```
 
 1. Config: `DbProvider` / `DbConnectionString`, `BARDIE_JOIN_SECRETS`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `BARDIE_MODULE_MTLS_BOOTSTRAP`, `BARDIE_GRPC_TLS_*` ([configuration](../operations/configuration.md)).
 2. **OpenTelemetry bootstrap** in `Program.cs`: OTLP exporter, `service.name=bardie.kithara`, ASP.NET + gRPC + HttpClient + EF auto-instrumentation; W3C propagation on. Safe when collector is absent.
 3. EF migrations for core tables (ADR 006 shapes).
 4. **Module Registry** service: `Register` authenticated by **join secret**; issues client certs in `auto` mode (or confirms preshared material); **Heartbeat authenticated by mTLS** (not join secret). Track slug, capabilities, advertise address, JWKS (auth), search schema (sources); project AUTH/SOURCE into harness catalogs. Registry RPCs appear as spans once gRPC instrumentation is on.
-5. Dual listeners: HTTP `:8080`, gRPC HTTPS `:5000` (internal) via `Bardie.Module.Channel` helpers.
+5. Dual listeners: HTTP `:8080`, gRPC HTTPS `:5000` (internal) via `Bardie.Logos.Channel` helpers.
 6. Health/readiness endpoints suitable for Compose.
 
 

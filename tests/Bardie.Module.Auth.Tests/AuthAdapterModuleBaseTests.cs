@@ -1,5 +1,5 @@
 using Bardie.Auth.V1;
-using Bardie.Module.Channel.Manifest;
+using Bardie.Logos.Channel.Manifest;
 using Bardie.Modules.V1;
 using Grpc.Core;
 using Xunit;

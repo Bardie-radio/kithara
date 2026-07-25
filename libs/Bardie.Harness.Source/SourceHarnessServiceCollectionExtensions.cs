@@ -1,4 +1,4 @@
-using Bardie.Module.Channel;
+using Bardie.Logos.Channel;
 using Bardie.Harness.Source.Catalog;
 using Microsoft.Extensions.DependencyInjection;
 

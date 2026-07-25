@@ -26,9 +26,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\libs\Bardie.Module.Source\Bardie.Module.Source.csproj" />
-    <ProjectReference Include="..\..\libs\Bardie.Module.Channel\Bardie.Module.Channel.csproj" />
-    <ProjectReference Include="..\..\libs\Bardie.Contracts\Bardie.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\kithara-logos-source\src\Bardie.Module.Source\Bardie.Module.Source.csproj" />
+    <ProjectReference Include="..\..\..\logos\src\Bardie.Logos.Channel\Bardie.Logos.Channel.csproj" />
+    <ProjectReference Include="..\..\..\logos\src\Bardie.Logos.Contracts\Bardie.Logos.Contracts.csproj" />
   </ItemGroup>
 
 </Project>
