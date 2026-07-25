@@ -97,7 +97,7 @@ Historical aliases (`SEC-*`, `NEW-*`, `DES-*`, `KI-*`, `QA-*`, `DOC-*`, `OPS-*`)
 | **AUTH-JWKS-002** | P2 | JWKS snapshot cold window at boot | **Fixed** — Register awaits JWKS; fail-closed rejects Register |
 | **META-QA-001** | P1 | Host E2E + Bes/Magpie module tests | **Fixed** — host invite claim→bind + guest/rotate; Bes/Magpie unit tests ([kithara#22](https://github.com/Bardie-radio/kithara/issues/22), bes#6, magpie#2) |
 | **META-DOC-001** | P3 | Plan/module docs lag code (incl. `/player` autoplay wording) | Phase 8 ([kithara#23](https://github.com/Bardie-radio/kithara/issues/23), [plume#12](https://github.com/Bardie-radio/plume/issues/12), bes#7, magpie#3) |
-| **META-OPS-002** | P2 | Final images: Ubuntu aspnet + full apt `ffmpeg`; Alpine + bare-minimum libav | Phase 8 ([kithara#33](https://github.com/Bardie-radio/kithara/issues/33), [magpie#6](https://github.com/Bardie-radio/magpie/issues/6), [plume#13](https://github.com/Bardie-radio/plume/issues/13), [bes#10](https://github.com/Bardie-radio/bes/issues/10)) — [known-issues](known-issues.md#meta-ops-002--final-images-bloated-ubuntu--full-ffmpeg) |
+| **META-OPS-002** | P2 | Final images: Ubuntu aspnet + full apt `ffmpeg`; Alpine + bare-minimum libav | **Fixed** ([kithara#33](https://github.com/Bardie-radio/kithara/issues/33), [magpie#6](https://github.com/Bardie-radio/magpie/issues/6), [plume#13](https://github.com/Bardie-radio/plume/issues/13), [bes#10](https://github.com/Bardie-radio/bes/issues/10)) — [known-issues](known-issues.md#meta-ops-002--final-images-bloated-ubuntu--full-ffmpeg) |
 | **META-OTEL-001** | P1 | Local Compose omits `OTEL_EXPORTER_OTLP_ENDPOINT` | **Fixed** ([kithara#34](https://github.com/Bardie-radio/kithara/issues/34)) — [known-issues](known-issues.md#meta-otel-001--local-compose-omits-otel_exporter_otlp_endpoint) |
 | **META-OTEL-002** | P1 | `Task.Run` drops Activity (Magpie track + Neck encode) | **Fixed** ([kithara#36](https://github.com/Bardie-radio/kithara/issues/36)) — [known-issues](known-issues.md#meta-otel-002--taskrun-drops-activity-context-magpie--neck) |
 | **META-OTEL-003** | P2 | Span attrs / Magpie stages / listen tags lag ADR 008 | **Fixed** (traces; OTLP logs deferred) ([kithara#35](https://github.com/Bardie-radio/kithara/issues/35)) — [known-issues](known-issues.md#meta-otel-003--span-attrs--stage-coverage-lag-adr-008) |
@@ -355,6 +355,7 @@ Join secret is the **bootstrap** credential before mTLS exists. Auto deliberatel
 - [x] Channel host↔slug pin on work dials (MESH-CHN-001)
 - [x] Plume BFF: no JWT in browser; discovery without provider-id branching; CSP + antiforgery (PLUME-SEC-001/002)
 - [x] Plume `/player` may autoplay (product intent — docs under META-DOC-001)
+- [x] Alpine finals + bare `ffmpeg-libav*` for Kithara/Magpie (META-OPS-002)
 - [ ] Phase 8: host E2E + module tests + remaining doc sweep
 
 ---

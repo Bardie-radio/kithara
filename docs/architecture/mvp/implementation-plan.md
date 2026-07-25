@@ -119,7 +119,7 @@ Phase 7 needs Phase 2 + enough of 5–6 (now available). Phase 8 needs MVP apps 
 | META-OTEL-002  | Ops           | `Task.Run` drops Activity (Magpie track + Neck encode)                                | **8** — **Fixed** ([kithara#36](https://github.com/Bardie-radio/kithara/issues/36)) |
 | META-OTEL-003  | Ops           | Span attrs / Magpie stages / listen tags lag ADR 008                                  | **8** — **Fixed** (traces; OTLP logs deferred) ([kithara#35](https://github.com/Bardie-radio/kithara/issues/35)) |
 | META-OPS-001   | Ops           | Phase3 sine smoke vs Magpie Release image                                             | **8**                                                                   |
-| META-OPS-002   | Ops           | Alpine final images + bare-minimum FFmpeg libs (Kithara/Magpie); Alpine for Plume/Bes | **8** ([kithara#33](https://github.com/Bardie-radio/kithara/issues/33)) |
+| META-OPS-002   | Ops           | Alpine final images + bare-minimum FFmpeg libs (Kithara/Magpie); Alpine for Plume/Bes | **Done** ([kithara#33](https://github.com/Bardie-radio/kithara/issues/33)) |
 | META-DOC-001   | Docs          | Doc vs code drift (Tune path, Bes ops, Magpie scope, phase status)                    | **8**                                                                   |
 | MESH-REG-*     | Mesh residual | Join-secret takeover / auto key-on-wire / ephemeral CA                                | Ops + backlog ([security-audit](security-audit.md))                     |
 
@@ -500,7 +500,7 @@ Do **not** renumber Plume work as “Kithara 7.1 / 7.2”. Satisfies this phase 
 4. Smoke script / checklist: register → login → create → play → listen → skip — **and** a single play trace spanning Plume → Kithara → Magpie. Activity across `Task.Run` (**META-OTEL-002 Fixed**); attrs/stages (**META-OTEL-003 Fixed**, traces only).
 5. **META-QA-001 Fixed:** Host `WebApplicationFactory` (discovery→`/me`, invite claim→bind, guest exchange, MustRotate gate) + Bes Authenticate/`UpdateUserBinding` + Magpie registry/FIFO pacing/cancel. create→play→FIFO still needs FFmpeg + source module in Compose smoke.
 6. **META-OPS-001:** Align Local phase3 sine smoke with Magpie image config (Debug sine helper vs Release YouTube default) so the documented smoke path is honest.
-7. **META-OPS-002:** Shrink finals — Alpine base for the MVP quartet; Kithara/Magpie ship bare-minimum FFmpeg.AutoGen shared libs (not apt/apk `ffmpeg` metapackages). See [known-issues](known-issues.md#meta-ops-002--final-images-bloated-ubuntu--full-ffmpeg) / [kithara#33](https://github.com/Bardie-radio/kithara/issues/33).
+7. **META-OPS-002:** **Done** — Alpine **3.22** finals (`aspnet:10.0-alpine3.22`) for the MVP quartet; Kithara/Magpie install Alpine `ffmpeg-libav*` 6.1 only (no CLI metapackage; pin avoids 3.23+ ffmpeg 8 soname break); `BARDIE_FFMPEG_ROOT`/`MAGPIE_FFMPEG_ROOT=/usr/lib`. See [known-issues](known-issues.md#meta-ops-002--final-images-bloated-ubuntu--full-ffmpeg) / [kithara#33](https://github.com/Bardie-radio/kithara/issues/33).
 8. **META-DOC-001:** Sweep doc drift (library Tune path, Bes operations JWT wording, Magpie Register wording, MVP phase status vs code).
 9. **NECK-JOB-001 / NECK-SWP-001 / NECK-PCM-001 Fixed:** TrackStatus reconnect + capped give-up; no orphan sweep on play; shared `CanonicalPcm` ([kithara#26](https://github.com/Bardie-radio/kithara/issues/26), [kithara#25](https://github.com/Bardie-radio/kithara/issues/25)).
 

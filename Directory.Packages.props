@@ -47,7 +47,7 @@
     <PackageVersion Include="Microsoft.IdentityModel.Tokens" Version="8.14.0" />
     <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.14.0" />
 
-    <!-- Media (in-process libav — match distro ffmpeg 6.1 in aspnet Ubuntu images) -->
+    <!-- Media (in-process libav — match Alpine ffmpeg-libav* 6.1.x / libavcodec.so.60) -->
     <PackageVersion Include="FFmpeg.AutoGen" Version="6.1.0.1" />
 
     <!-- Tests -->

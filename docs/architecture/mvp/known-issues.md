@@ -12,7 +12,7 @@ IDs use `SURFACE-TOPIC-NNN` (see [security-audit ID scheme](security-audit.md#id
 |----|-----|---------|----------|
 | [NECK-PCM-001](#neck-pcm-001--canonical-pcm-format-constants-are-duplicated) | P2 | **Fixed** — shared `CanonicalPcm` | [kithara#25](https://github.com/Bardie-radio/kithara/issues/25) |
 | [NECK-SWP-001](#neck-swp-001--orphan-writer-sweep-runs-on-every-play-including-new-strunas) | P2 | **Fixed** — no orphan sweep on play; recovery-only | [kithara#26](https://github.com/Bardie-radio/kithara/issues/26) |
-| [META-OPS-002](#meta-ops-002--final-images-bloated-ubuntu--full-ffmpeg) | P2 | Final images: Ubuntu aspnet + full apt `ffmpeg`; move to Alpine + bare-minimum libav | [kithara#33](https://github.com/Bardie-radio/kithara/issues/33) |
+| [META-OPS-002](#meta-ops-002--final-images-bloated-ubuntu--full-ffmpeg) | P2 | **Fixed** — Alpine finals + bare `ffmpeg-libav*` (no CLI metapackage) | [kithara#33](https://github.com/Bardie-radio/kithara/issues/33) |
 | [META-OTEL-001](#meta-otel-001--local-compose-omits-otel_exporter_otlp_endpoint) | P1 | **Fixed** — opt-in via `compose.otel*.yml` (no default endpoint) | [kithara#34](https://github.com/Bardie-radio/kithara/issues/34) |
 | [META-OTEL-002](#meta-otel-002--taskrun-drops-activity-context-magpie--neck) | P1 | **Fixed** — ActivityLink across Magpie/Neck `Task.Run` | [kithara#36](https://github.com/Bardie-radio/kithara/issues/36) |
 | [META-OTEL-003](#meta-otel-003--span-attrs--stage-coverage-lag-adr-008) | P2 | **Fixed** (traces/attrs/stages; OTLP logs still optional/deferred) | [kithara#35](https://github.com/Bardie-radio/kithara/issues/35) |
@@ -64,28 +64,21 @@ Chunk / buffer sizes (e.g. `FifoAudioSink.BufferSize`) remain local I/O knobs.
 
 **Severity:** P2 (ops / deploy cost; not a runtime bug)  
 **Component:** Kithara + Magpie Dockerfiles (FFmpeg.AutoGen); Plume + Bes (Alpine only)  
-**Owner:** Phase 8 / ops polish
+**Owner:** Phase 8 / ops polish  
+**Status:** **Fixed**
 
 **Tracking:** [kithara#33](https://github.com/Bardie-radio/kithara/issues/33) · [magpie#6](https://github.com/Bardie-radio/magpie/issues/6) · [plume#13](https://github.com/Bardie-radio/plume/issues/13) · [bes#10](https://github.com/Bardie-radio/bes/issues/10)
 
-Local Compose finals are far larger than the managed apps need:
+Finals previously used Ubuntu `aspnet:10.0` plus apt `ffmpeg` / `curl`.
 
-| Image | ~size | Dominant cost |
-|-------|------:|---------------|
-| `bardie-kithara:*` | ~745MB | `aspnet:10.0` + apt `ffmpeg` metapackage |
-| `bardie-magpie:*` | ~657MB | same |
-| `bardie-plume:*` / `bardie-bes:*` | ~242MB | mostly stock Ubuntu aspnet (+ `curl`) |
+**Remediation (shipped):**
 
-Neck and Magpie load **shared libs via FFmpeg.AutoGen** (PCM→MP3 encode; demux/decode/resample). They do not need the FFmpeg CLI or Ubuntu’s video-codec dependency tree.
+1. All four MVP finals → `mcr.microsoft.com/dotnet/aspnet:10.0-alpine3.22` (**not** floating `10.0-alpine`). Alpine 3.23+ ships ffmpeg **8** (`libavutil.so.60`); AutoGen **6.1.0.1** needs 6.1 sonames (`.58` / `.60`). **Build** on Debian `sdk:10.0` (Grpc.Tools `protoc` is glibc-only) and `dotnet publish -r linux-musl-x64 --self-contained false`.
+2. Kithara/Magpie: Alpine **split** packages only — `ffmpeg-libavcodec` / `libavformat` / `libavutil` / `libswresample` (3.22 → 6.1.x → `libavcodec.so.60`). **No** `ffmpeg` CLI metapackage.
+3. `BARDIE_FFMPEG_ROOT` / `MAGPIE_FFMPEG_ROOT` → `/usr/lib`; Local Compose healthchecks use busybox `wget`.
+4. Plume entrypoint uses `su-exec` (Alpine) instead of `setpriv`.
 
-**Remediation sketch:**
-
-1. Final stage → `aspnet:10.0-alpine` (or equivalent) for all four MVP services.
-2. Kithara/Magpie: ship **only** the libav pieces each process uses — not `apk`/`apt` `ffmpeg` metapackages. Keep FFmpeg.AutoGen soname compatibility (today 6.1.x / `libavcodec.so.60`): pin/build 6.1 libs on Alpine, or bump AutoGen with test proof.
-3. Update `BARDIE_FFMPEG_ROOT` / `MAGPIE_FFMPEG_ROOT` (Alpine lib layout ≠ `/usr/lib/x86_64-linux-gnu`) and healthcheck tooling (`curl` vs busybox wget).
-4. Success bar (local uncompressed): Magpie/Kithara well under ~350MB; Plume/Bes clearly under ~242MB.
-
-Out of scope here: PublishTrimmed / Native AOT.
+Out of scope: PublishTrimmed / Native AOT; in-app OTLP log export.
 
 ---
 

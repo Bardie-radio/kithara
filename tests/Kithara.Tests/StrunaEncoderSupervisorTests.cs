@@ -17,12 +17,13 @@ public class StrunaEncoderSupervisorTests
             throw SkipException.ForSkip("Struna encoder FIFO integration requires a Unix host.");
         }
 
-        // Magpie-style: BARDIE_FFMPEG_ROOT / Debian paths (FFmpeg.AutoGen 6.1 → libavcodec.so.60).
+        // Magpie-style: BARDIE_FFMPEG_ROOT / Alpine /usr/lib (FFmpeg.AutoGen 6.1 → libavcodec.so.60).
         var ffmpegRoot = Environment.GetEnvironmentVariable("BARDIE_FFMPEG_ROOT");
         if (string.IsNullOrWhiteSpace(ffmpegRoot))
         {
             foreach (var dir in new[]
                      {
+                         "/usr/lib",
                          "/usr/lib/x86_64-linux-gnu",
                          "/usr/lib/aarch64-linux-gnu",
                      })
