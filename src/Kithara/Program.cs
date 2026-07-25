@@ -35,8 +35,8 @@ builder.Services.AddKitharaBlobStorage(builder.Configuration);
 builder.Services.AddKitharaLibrary();
 builder.Services.AddKitharaNeck(builder.Configuration);
 builder.Services.AddKitharaSearch(builder.Configuration);
-builder.Services.AddModuleRegistry(builder.Configuration);
 builder.Services.AddKitharaAuthAuthentication(builder.Configuration);
+builder.Services.AddModuleRegistry(builder.Configuration);
 builder.Services.AddHostedService<SeedAdminBootstrapHostedService>();
 
 // GUEST-XCHG-001: guest-code exchange is unauthenticated — bound by IP + Struna id.
