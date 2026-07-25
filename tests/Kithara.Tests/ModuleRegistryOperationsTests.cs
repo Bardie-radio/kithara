@@ -209,6 +209,9 @@ public class ModuleRegistryOperationsTests
         });
         services.AddAuthModuleHarness();
         services.AddSourceModuleHarness();
+        services.AddMemoryCache();
+        services.AddHttpClient(nameof(Kithara.Features.Auth.AuthModuleJwksKeyProvider));
+        services.AddSingleton<Kithara.Features.Auth.AuthModuleJwksKeyProvider>();
         services.AddSingleton<InMemoryModuleRegistry>();
         services.Configure<ModuleRegistryOptions>(o =>
         {

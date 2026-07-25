@@ -4,6 +4,7 @@ using Bardie.Module.Channel.Certificates;
 using Bardie.Modules.V1;
 using Bardie.Harness.Source.Catalog;
 using Grpc.Core;
+using Kithara.Features.Auth;
 using Microsoft.Extensions.Options;
 
 namespace Kithara.Features.Modules;
@@ -21,6 +22,7 @@ public sealed class ModuleRegistryOperations
     private readonly IModuleCertificateIssuer _certificateIssuer;
     private readonly ModuleRegistryOptions _registryOptions;
     private readonly ModuleChannelOptions _channelOptions;
+    private readonly AuthModuleJwksKeyProvider _jwksKeys;
     private readonly ILogger<ModuleRegistryOperations> _logger;
 
     public ModuleRegistryOperations(
@@ -31,6 +33,7 @@ public sealed class ModuleRegistryOperations
         IModuleCertificateIssuer certificateIssuer,
         IOptions<ModuleRegistryOptions> registryOptions,
         IOptions<ModuleChannelOptions> channelOptions,
+        AuthModuleJwksKeyProvider jwksKeys,
         ILogger<ModuleRegistryOperations> logger)
     {
         _registry = registry;
@@ -40,6 +43,7 @@ public sealed class ModuleRegistryOperations
         _certificateIssuer = certificateIssuer;
         _registryOptions = registryOptions.Value;
         _channelOptions = channelOptions.Value;
+        _jwksKeys = jwksKeys;
         _logger = logger;
     }
 
@@ -241,6 +245,9 @@ public sealed class ModuleRegistryOperations
                     LastHeartbeatAt = now,
                     ExpiresAt = expiresAt,
                 });
+                // AUTH-JWKS-001: do not wait up to the hosted-service interval — Bes tokens
+                // validate only after this snapshot includes the module JWKS.
+                _ = RefreshJwksAfterAuthRegisterAsync(slug);
                 break;
 
             case WellKnownModuleKinds.Source:
@@ -274,6 +281,19 @@ public sealed class ModuleRegistryOperations
                     slug,
                     kind);
                 break;
+        }
+    }
+
+    private async Task RefreshJwksAfterAuthRegisterAsync(string slug)
+    {
+        try
+        {
+            await _jwksKeys.RefreshSnapshotAsync(CancellationToken.None).ConfigureAwait(false);
+            _logger.LogInformation("JWKS snapshot refreshed after auth module {Slug} register", slug);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "JWKS snapshot refresh failed after auth module {Slug} register", slug);
         }
     }
 }
