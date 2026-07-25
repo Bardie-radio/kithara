@@ -58,7 +58,7 @@ Historical aliases (`SEC-*`, `NEW-*`, `DES-*`, `KI-*`, `QA-*`, `DOC-*`, `OPS-*`)
 | [AUTH-ROT-001](#auth-rot-001--must_rotate_credentials-is-advisory-forever) | **P0** | Bes | Seed sets rotate flag; Authenticate never enforces / no password-change | **6** → **8** | **Fixed** — `UpdateUserBinding` + `bind_form`; host control gate (AUTH-ROT-002) |
 | [AUTH-ROLE-001](#auth-role-001--every-successful-login-mints-rolesadmin) | **P0** | Bes / AuthZ | Every mint hardcodes `roles=[admin]` | **6** | **Fixed** |
 | [AUTH-JWKS-001](#auth-jwks-001--jwks-resolver-uses-sync-over-async) | **P1** | Auth JWT | `GetAwaiter().GetResult()` in signing-key resolver | **6** | **Fixed** |
-| [GUEST-XCHG-001](#guest-xchg-001--guest-exchange-unauthenticated--no-rate-limit) | **P1** | Guests | Open `POST …/guest/exchange`; short codes brute-forceable | **6** | **Partial** — 10/min rate limit; no failure lockout |
+| [GUEST-XCHG-001](#guest-xchg-001--guest-exchange-unauthenticated--no-rate-limit) | **P1** | Guests | Open `POST …/guest/exchange`; short codes brute-forceable | **6** | **Partial** — 10/min rate limit; lockout → GUEST-XCHG-002 |
 | [MESH-CHN-001](#mesh-chn-001--work-port-mtls-trusts-ca-only--not-hostslug-pinned) | **P1** | Module.Channel | Work-port accepts any mesh-CA client cert; host dials skip server pin | **4** | **Fixed** |
 | [MESH-REG-001](#mesh-reg-001--slug-takeover-via-join-secret-auto) | High* | Registry | Join secret + Register window → slug takeover (auto) | Ops + backlog | **Open** |
 | MESH-REG-002 | Residual | Registry | Auto private-key-on-wire | Ops (`preshared`) | **Open** |
@@ -78,7 +78,7 @@ Historical aliases (`SEC-*`, `NEW-*`, `DES-*`, `KI-*`, `QA-*`, `DOC-*`, `OPS-*`)
 | **AUTH-ROT-001** | `SeedAdminBinding` + `UpdateUserBinding` / `bind_form`; Authenticate login-only | — |
 | **AUTH-ROLE-001** | Roles from binding; SeedAdminBinding = admin once; default `user` | — |
 | **AUTH-JWKS-001** | JWKS snapshot + hosted refresh; resolver reads cache only | — |
-| **GUEST-XCHG-001** | `guest-exchange` fixed window 10/min per IP+Struna | Failure lockout |
+| **GUEST-XCHG-001** | `guest-exchange` fixed window 10/min per IP+Struna | — |
 | **MESH-CHN-001** | `CertificateIdentity.IsHostClient` inbound; `expectedServerIdentity` outbound | — |
 | **AUTH-ORCH-001** | Auth harness discovery `provider_id → module` map | — |
 
@@ -88,8 +88,8 @@ Historical aliases (`SEC-*`, `NEW-*`, `DES-*`, `KI-*`, `QA-*`, `DOC-*`, `OPS-*`)
 |----|-----|---------|-------|
 | **AUTH-ROT-002** | P1 | Host denies control while `must_rotate` (`403` + `credentials_rotation_required`) | **Fixed** (Phase 8) |
 | **NECK-JOB-001** | P2 | TrackStatus disconnect without terminal event can orphan Neck jobs | Phase 8 / Neck polish — drives [NECK-SWP-001](known-issues.md#neck-swp-001--orphan-writer-sweep-runs-on-every-play-including-new-strunas) / [kithara#26](https://github.com/Bardie-radio/kithara/issues/26) |
-| **GUEST-XCHG-002** | P2 | Guest rate-limit without failure lockout (extends GUEST-XCHG-001) | Phase 8 |
-| **STREAM-TOK-001** | P2 | Listen-token compare not constant-time | Phase 8 |
+| **GUEST-XCHG-002** | P2 | Guest failure lockout (5 failures → 15 min) | **Fixed** (Phase 8) |
+| **STREAM-TOK-001** | P2 | Listen-token compare not constant-time | **Fixed** — `CryptographicOperations.FixedTimeEquals` |
 | **AUTH-JWKS-002** | P2 | JWKS snapshot cold window at boot | **Fixed** — Register awaits first JWKS refresh |
 | **META-QA-001** | P1 | No host E2E; Bes/Magpie have no module-local tests | Phase 8 ([kithara#22](https://github.com/Bardie-radio/kithara/issues/22), bes#6, magpie#2) |
 | **META-DOC-001** | P3 | Plan/module docs lag code (incl. `/player` autoplay wording) | Phase 8 ([kithara#23](https://github.com/Bardie-radio/kithara/issues/23), [plume#12](https://github.com/Bardie-radio/plume/issues/12), bes#7, magpie#3) |
@@ -102,10 +102,10 @@ Historical aliases (`SEC-*`, `NEW-*`, `DES-*`, `KI-*`, `QA-*`, `DOC-*`, `OPS-*`)
 
 | ID | Sev | Summary | Status |
 |----|-----|---------|--------|
-| **DOC-STREAM-001** | P1 | `struna-access.md` Web/Plume protected = “Session/cookie”; code still needs `?token=` | **Open** — Kithara docs |
-| **PLUME-SEC-001** | P2 | No Content-Security-Policy on Plume host | **Open** |
-| **PLUME-SEC-002** | P2 | BFF state-changing routes: SameSite only (no antiforgery tokens) | **Open** |
-| **PLUME-SESS-001** | P2 | In-memory session token store (multi-replica / restart) | **Open** (MVP limit) |
+| **DOC-STREAM-001** | P1 | `struna-access.md` Web/Plume protected = “Session/cookie”; code still needs `?token=` | **Fixed** — listen token vs BFF cookie clarified |
+| **PLUME-SEC-001** | P2 | No Content-Security-Policy on Plume host | **Fixed** — default CSP middleware |
+| **PLUME-SEC-002** | P2 | BFF state-changing routes: SameSite only (no antiforgery tokens) | **Fixed** — `X-CSRF-TOKEN` / form antiforgery on unsafe `/bff/*` |
+| **PLUME-SESS-001** | P2 | In-memory session token store (multi-replica / restart) | **Deferred** — MVP single-replica (documented in Plume security-notes) |
 | **GUEST-XCHG-003** | P3 | Dual guest-exchange routes (id vs slug) → separate rate-limit partitions | **Open** |
 
 **Withdrawn — not a product bug:** former **PLUME-AUD-001** (public `/player` auto-start). **Decision (Jul 2026):** the listen/player page is expected to play on load. Track as **docs only** under [META-DOC-001](https://github.com/Bardie-radio/kithara/issues/23) and [plume#12](https://github.com/Bardie-radio/plume/issues/12): replace “audio off by default” with “`/player` autoplays; optional listen elsewhere is opt-in.”
@@ -281,14 +281,15 @@ Join secret is the **bootstrap** credential before mTLS exists. Auto deliberatel
 - [ ] Bootstrap mode = `preshared` whenever the channel leaves a trusted private network
 - [ ] Document who can read Compose/secret store (same trust as join secrets)
 - [x] Guest refresh works for `kithara.guest` (GUEST-REF-001)
-- [x] Guest exchange rate-limited (GUEST-XCHG-001 — lockout still optional)
+- [x] Guest exchange rate-limited (GUEST-XCHG-001 — lockout GUEST-XCHG-002)
 - [x] Bes roles from binding; SeedAdminBinding is first admin only (AUTH-ROLE-001)
 - [x] `must_rotate` cleared via `UpdateUserBinding` / `bind_form`; host denies control (AUTH-ROT-001 / AUTH-ROT-002)
 - [x] JWKS snapshot warm on auth Register (AUTH-JWKS-002)
+- [x] Listen-token FixedTimeEquals (STREAM-TOK-001)
 - [x] Channel host↔slug pin on work dials (MESH-CHN-001)
-- [x] Plume BFF: no JWT in browser; discovery without provider-id branching
+- [x] Plume BFF: no JWT in browser; discovery without provider-id branching; CSP + antiforgery (PLUME-SEC-001/002)
 - [x] Plume `/player` may autoplay (product intent — docs under META-DOC-001)
-- [ ] Phase 8: host E2E + module tests + doc sweep (incl. DOC-STREAM-001, player autoplay wording)
+- [ ] Phase 8: host E2E + module tests + remaining doc sweep
 
 ---
 

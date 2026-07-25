@@ -128,8 +128,8 @@ public static class StreamEndpoints
             case PlaybackAccess.Protected:
             {
                 var token = http.Request.Query["token"].FirstOrDefault();
-                if (string.IsNullOrEmpty(struna.ListenToken)
-                    || !string.Equals(token, struna.ListenToken, StringComparison.Ordinal))
+                // STREAM-TOK-001: constant-time compare (length mismatch → false).
+                if (!ListenTokenComparer.FixedTimeEquals(token, struna.ListenToken))
                 {
                     http.Response.StatusCode = StatusCodes.Status403Forbidden;
                     await http.Response.WriteAsJsonAsync(new { error = "listen_token_required" }, ct)

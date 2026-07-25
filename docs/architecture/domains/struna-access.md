@@ -22,7 +22,7 @@ Playback and control access are **fully independent** per Struna. Plume’s remo
 |------|----------------|-------------|
 | **public** | `/stream/lofi` | Works (anonymous player OK) |
 | **hidden** | `/stream/lofi` (same gate) | Works via shared `/player/{slug}` URL; **not** on listen lists |
-| **protected** | `/stream/lofi?token=...` (MVP) | Session/cookie |
+| **protected** | `/stream/lofi?token=...` (MVP) | Same listen token on `/stream/{slug}?token=` (or Plume player that passes it). UI session cookie is **BFF/control only** — not listen ACL |
 | **private** | Not compatible (no OIDC in VLC) | Full auth |
 
 ### Protected token delivery

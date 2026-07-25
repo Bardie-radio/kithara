@@ -442,8 +442,10 @@ public static class StrunaEndpoints
     private static async Task<IResult> GuestExchangeAsync(
         Guid id,
         [FromBody] GuestExchangeBody body,
+        HttpContext http,
         Neck neck,
         GuestJwtService guests,
+        GuestExchangeLockout lockout,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(body.GuestCode ?? body.Code))
@@ -457,7 +459,13 @@ public static class StrunaEndpoints
             return Results.NotFound(new { error = "not_found" });
         }
 
-        return await CompleteGuestExchangeAsync(id, body.GuestCode ?? body.Code!, guests, ct)
+        return await CompleteGuestExchangeAsync(
+                http,
+                id,
+                body.GuestCode ?? body.Code!,
+                guests,
+                lockout,
+                ct)
             .ConfigureAwait(false);
     }
 
@@ -467,8 +475,10 @@ public static class StrunaEndpoints
     private static async Task<IResult> GuestExchangeBySlugAsync(
         string slug,
         [FromBody] GuestExchangeBody body,
+        HttpContext http,
         Neck neck,
         GuestJwtService guests,
+        GuestExchangeLockout lockout,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(body.GuestCode ?? body.Code))
@@ -482,22 +492,48 @@ public static class StrunaEndpoints
             return Results.NotFound(new { error = "not_found" });
         }
 
-        return await CompleteGuestExchangeAsync(struna.Id, body.GuestCode ?? body.Code!, guests, ct)
+        return await CompleteGuestExchangeAsync(
+                http,
+                struna.Id,
+                body.GuestCode ?? body.Code!,
+                guests,
+                lockout,
+                ct)
             .ConfigureAwait(false);
     }
 
     private static async Task<IResult> CompleteGuestExchangeAsync(
+        HttpContext http,
         Guid strunaId,
         string guestCode,
         GuestJwtService guests,
+        GuestExchangeLockout lockout,
         CancellationToken ct)
     {
+        var partition = GuestExchangeLockout.PartitionKey(
+            http.Connection.RemoteIpAddress?.ToString(),
+            strunaId);
+
+        // GUEST-XCHG-002: consecutive-failure lockout (in addition to rate limit).
+        if (lockout.IsLocked(partition, out var until))
+        {
+            return Results.Json(
+                new
+                {
+                    error = "guest_exchange_locked",
+                    locked_until = until?.ToString("O"),
+                },
+                statusCode: StatusCodes.Status429TooManyRequests);
+        }
+
         var exchanged = await guests.ExchangeAsync(strunaId, guestCode, ct).ConfigureAwait(false);
         if (exchanged is null)
         {
+            lockout.RecordFailure(partition);
             return Results.Json(new { error = "invalid_guest_code" }, statusCode: StatusCodes.Status401Unauthorized);
         }
 
+        lockout.RecordSuccess(partition);
         var (userId, access, refresh, expiresIn) = exchanged.Value;
         return Results.Ok(new
         {
