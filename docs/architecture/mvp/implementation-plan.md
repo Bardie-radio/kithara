@@ -235,7 +235,7 @@ libs/
 
 ## Phase 2 — Auth vertical (Bes + Harness)
 
-**Status: complete.** Contracts package + Auth Harness + Bes + JWT verify + bootstrap `seedAdmin`.
+**Status: complete.** Contracts package + Auth Harness + Bes + JWT verify + bootstrap **AUTH-INVITE** (host OTP).
 
 **Why:** Control APIs need a verified identity. Auth stays behind Kithara (BFF).
 
@@ -245,7 +245,7 @@ libs/
 2. JWT Bearer middleware: verify **user** JWTs via registered module JWKS (cache JWKS).
 3. REST: `/api/auth/discovery`, `/authenticate`, `/refresh` ([auth](../interfaces/auth.md)).
 4. Guest JWT signing: env key if set, else auto-generate + persist; mint path used in Phase 6.
-5. Bootstrap via `seedAdmin` on Bes when DB empty; log welcome text; `must_rotate_credentials`.
+5. Bootstrap when DB empty: host invite OTP for DEFAULT_ADMIN (log once); claim → bind. Admin `/register` username-only + one-time `registration_password`.
 
 
 
@@ -425,7 +425,7 @@ libs/
 | **AUTH-JWKS-001**  | **Done** — async JWKS snapshot                                                      |
 | **AUTH-JWKS-002**  | **Done** — Register awaits JWKS; fail-closed rejects Register                       |
 | **GUEST-XCHG-001** | **Partial** — 10/min rate limit; failure lockout **Done** (GUEST-XCHG-002)         |
-| **AUTH-DISP-001**  | **Open** — host `User.Username` / unique display id (login id = Bes subject today)  |
+| **AUTH-DISP-001**  | **Done** — unique `User.Username`; `/me` + invite `must_complete_binding` |
 
 
 
@@ -440,7 +440,7 @@ libs/
 
 - Full DJ loop with Bes JWT and with guest JWT on a protected-control Struna.
 - Magpie is selectable only via `module` slug / priority — no Magpie-specific REST.
-- Security checklist items for Phase 6 in [security-audit](security-audit.md) are closed (GUEST-REF-001, LIB-TUNE-001, AUTH-ROLE-001, AUTH-JWKS-001, AUTH-ROT-001); AUTH-DISP-001 remains open; GUEST-XCHG-002 closed in Phase 8.
+- Security checklist items for Phase 6 in [security-audit](security-audit.md) are closed (GUEST-REF-001, LIB-TUNE-001, AUTH-ROLE-001, AUTH-JWKS-001, AUTH-ROT-001, AUTH-DISP-001); GUEST-XCHG-002 closed in Phase 8.
 - `provider_id` that is not equal to module slug still authenticates against the correct adapter.
 
 ---
@@ -498,7 +498,7 @@ Do **not** renumber Plume work as “Kithara 7.1 / 7.2”. Satisfies this phase 
 2. `BARDIE_JOIN_SECRETS` for all modules; audio/storage volumes as decided.
 3. Point every app at the **external** OTel collector (`OTEL_EXPORTER_OTLP_ENDPOINT`); confirm `service.name` values per [observability](../operations/observability.md). See [META-OTEL-001](known-issues.md#meta-otel-001--local-compose-omits-otel_exporter_otlp_endpoint) / [kithara#34](https://github.com/Bardie-radio/kithara/issues/34).
 4. Smoke script / checklist: register → login → create → play → listen → skip — **and** a single play trace spanning Plume → Kithara → Magpie. Requires [META-OTEL-002](known-issues.md#meta-otel-002--taskrun-drops-activity-context-magpie--neck) (Activity across `Task.Run`) before the continuous tree can hold; attrs/stages under [META-OTEL-003](known-issues.md#meta-otel-003--span-attrs--stage-coverage-lag-adr-008).
-5. **META-QA-001:** Host integration tests (discovery→`/me`, create→play→FIFO readable, guest exchange, `seedAdmin` bootstrap). Prefer landing tests alongside Phase 4–6 PRs; Phase 8 is the freeze that they must pass. Magpie/Bes module-local unit tests.
+5. **META-QA-001:** Host integration tests (discovery→`/me`, create→play→FIFO readable, guest exchange, **AUTH-INVITE** bootstrap: empty DB invite → claim → bind). Prefer landing tests alongside Phase 4–6 PRs; Phase 8 is the freeze that they must pass. Magpie/Bes module-local unit tests. **auth-invite-bindonly / AUTH-CLAIM-001:** claim allow-list + post-bind access death — **closed** (unit + Plume BFF invite tests).
 6. **META-OPS-001:** Align Local phase3 sine smoke with Magpie image config (Debug sine helper vs Release YouTube default) so the documented smoke path is honest.
 7. **META-OPS-002:** Shrink finals — Alpine base for the MVP quartet; Kithara/Magpie ship bare-minimum FFmpeg.AutoGen shared libs (not apt/apk `ffmpeg` metapackages). See [known-issues](known-issues.md#meta-ops-002--final-images-bloated-ubuntu--full-ffmpeg) / [kithara#33](https://github.com/Bardie-radio/kithara/issues/33).
 8. **META-DOC-001:** Sweep doc drift (library Tune path, Bes operations JWT wording, Magpie Register wording, MVP phase status vs code).
@@ -562,7 +562,7 @@ Out of scope stays out: Argus/Hecate, Beak/Cauda, Catbird/Starling, Icecast/HLS 
 | **Audio attach**        | Shared Compose volume; Kithara creates per-Struna session endpoints on demand; modules write PCM ([ADR 004](../adrs/004-source-instance-socket-audio-plane.md)). Prefer Unix sockets in implementation.                                    |
 | **Storage**             | Drivers **only on Kithara**; modules dial a **thin** put/get API. No per-module `BARDIE_STORAGE_`*.                                                                                                                                        |
 | **Pause**               | Part of common source contract (`PauseTrack` / `ResumeTrack`); Magpie implements; Starling omits `pause` capability.                                                                                                                       |
-| **Bootstrap admin**     | Auth capability `seedAdmin`; Kithara calls module; welcome text → Kithara logs; `must_rotate_credentials`.                                                                                                                                 |
+| **Bootstrap admin**     | **AUTH-INVITE:** host registration OTP (log once); `POST /api/auth/claim` → bind ceremony; admin `/register` username-only + one-time password. No `seedAdmin` / `SeedAdminBinding`. |
 | **Multi-source**        | Design for many sources from day one (priority / fan-out) — no Magpie-only shortcuts.                                                                                                                                                      |
 | **Search**              | **Global** REST; principal-scoped cache. Guests: clear on Struna teardown. Durable/managed: replace on next search + configurable timeout.                                                                                                 |
 | **Guests**              | Guest code **per Struna** → each exchange creates an **ephemeral guest user** + Kithara JWTs (+ refresh); destroyed with Struna. **Rotate code = block new joins only** (existing guests keep working until Struna delete).                |

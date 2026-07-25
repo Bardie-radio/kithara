@@ -52,6 +52,19 @@ public static class AuthPrincipal
             return await persistence.FindUserByIdAsync(guestId, ct).ConfigureAwait(false);
         }
 
+        if (string.Equals(provider, ClaimInviteJwtService.ProviderClaimValue, StringComparison.OrdinalIgnoreCase)
+            && Guid.TryParse(subject, out var claimUserId))
+        {
+            // AUTH-CLAIM-001: claim access dies after CompleteInvite (same rule as refresh).
+            var claimUser = await persistence.FindUserByIdAsync(claimUserId, ct).ConfigureAwait(false);
+            if (claimUser is null || !claimUser.MustCompleteBinding)
+            {
+                return null;
+            }
+
+            return claimUser;
+        }
+
         provider ??= authHarness.ListRegisteredModules().FirstOrDefault()?.Slug;
         if (string.IsNullOrWhiteSpace(provider))
         {
@@ -93,6 +106,13 @@ public sealed class RequirePrincipalFilter : IEndpointFilter
         }
 
         AuthPrincipal.Set(http, principal);
+
+        var bindOnlyDeny = BindOnlyGate.DenyIfDisallowed(http, principal);
+        if (bindOnlyDeny is not null)
+        {
+            return bindOnlyDeny;
+        }
+
         return await next(context).ConfigureAwait(false);
     }
 }

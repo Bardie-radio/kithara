@@ -22,7 +22,7 @@ message RegisterRequest {
   string slug = 1;                    // lowercase codename; operator may override via env
   string join_secret = 2;             // bootstrap trust (before mTLS cert exists)
   string kind = 3;                    // open string — not a closed enum
-  repeated string capabilities = 4;   // e.g. search, play, pause, prefetch, seedAdmin
+  repeated string capabilities = 4;   // e.g. search, play, pause, prefetch, updateBinding
   string grpc_advertise_address = 5;  // where the host dials this module for work RPCs
   oneof details {
     SourceRegisterDetails source = 10;   // optional; used when kind is well-known "source"
@@ -89,7 +89,7 @@ Other hosts can reuse the same join RPC + ModuleChannel and map their own kind s
 | Direction | When |
 |-----------|------|
 | **Module → Kithara** | `Register`, `Heartbeat`, storage put/get |
-| **Kithara → module** | Each work RPC (`Search`, `StartTrack`, `Authenticate`, `UpdateUserBinding`, `SeedAdminBinding`, …) as a **fresh dial** to `grpc_advertise_address` |
+| **Kithara → module** | Each work RPC (`Search`, `StartTrack`, `Authenticate`, `UpdateUserBinding`, …) as a **fresh dial** to `grpc_advertise_address` |
 
 Per-call dials keep operations atomic: one RPC = one span, one auth decision, easier timeouts and least-privilege checks. No long-lived command stream from module to Kithara for work.
 

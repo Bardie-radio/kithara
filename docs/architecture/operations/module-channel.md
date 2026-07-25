@@ -37,7 +37,7 @@ Each module ships one **`module.manifest.json`**. ModuleChannel loads **generic*
   "kind": "auth",
   "displayName": "Bes",
   "otelServiceName": "bardie.auth.bes",
-  "capabilities": ["seedAdmin", "updateBinding"],
+  "capabilities": ["updateBinding"],
   "auth": {
     "loginFormFields": [
       { "name": "username", "label": "Username", "inputType": "text", "required": true },
@@ -72,7 +72,7 @@ Capabilities are **open strings** on the wire. ModuleChannel never interprets th
 | Put in `capabilities[]` | Keep elsewhere |
 |-------------------------|----------------|
 | Optional RPCs / behaviours that some modules of the same kind omit | `kind` (`source` / `auth` / `client`) |
-| Host routing gates (“may I call SeedAdminBinding / PauseTrack / Search fan-out?”) | Register `details.source.searchFields` — from manifest `source.searchFields` via module customizer |
+| Host routing gates (“may I call UpdateUserBinding / PauseTrack / Search fan-out?”) | Register `details.source.searchFields` — from manifest `source.searchFields` via module customizer |
 | | Register `details.auth` JWKS — runtime customizer |
 | | Register `details.client.authMode` + `permissionCeiling` — module customizer |
 
@@ -84,8 +84,7 @@ Capabilities are **open strings** on the wire. ModuleChannel never interprets th
 | **source** | `play` | Implements `StartTrack` / `StopTrack` (PCM to session FIFO) | Magpie, Starling, Catbird |
 | **source** | `pause` | Implements `PauseTrack` / `ResumeTrack` without tearing down the job | Magpie yes; **Starling omits** |
 | **source** | `prefetch` | Implements `PrefetchTrack` (warm blob cache; no FIFO write) | Magpie yes; Starling/Catbird typically omit |
-| **auth** | `seedAdmin` | Host may call `SeedAdminBinding` when user DB empty | **Bes yes**; Argus typically **no** |
-| **auth** | `updateBinding` | Host may expose `UpdateUserBinding` + discovery `bind_form` (self-service account update / forced rotate) | **Bes yes**; IdP-only modules typically **no** |
+| **auth** | `updateBinding` | Host may expose `UpdateUserBinding` + discovery `bind_form` (invite bind, self-service account update / module-signaled forced rotate) | **Bes yes**; IdP-only modules typically **no** |
 
 ### Auth — reserved (document now; advertise only when implemented)
 
@@ -100,7 +99,7 @@ Capabilities are **open strings** on the wire. ModuleChannel never interprets th
 
 - `authenticate` / `refresh` / `getProviders` / `health` — core auth contract every well-known auth module speaks
 - `login_form` / `bind_form` / `redirect` — discovery surfaces on `GetProviders` (host strips `bind_form` unless `updateBinding` / `selfRegister`)
-- `updateUserBinding` / `seedAdminBinding` — RPC names; advertise **`updateBinding`** / **`seedAdmin`** instead
+- `updateUserBinding` — RPC name; advertise **`updateBinding`** instead
 - Permission strings (`create_struna`, …) — **`client.permissionCeiling`** on Register (customizer)
 - Source type labels (`youtube`, `live`, `files`) — do not invent these as capabilities
 - `PrepareTrack` — out of MVP until the RPC exists

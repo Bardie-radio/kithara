@@ -17,9 +17,9 @@ builder.Services.AddAuthModuleJwt(builder.Configuration);
 |------|------|
 | `AuthModuleJwtOptions` / `AuthModuleJwtService` | Mint access+refresh, validate refresh, export JWKS |
 | `AuthJwksRegisterRequestCustomizer` | Attach JWKS on Module Registry Register |
-| `AuthAdapterModuleBase` | `Health`, provider-id match, `Denied()`, default `UpdateUserBinding` / `SeedAdminBinding` → Unimplemented |
+| `AuthAdapterModuleBase` | `Health`, provider-id match, `Denied()`, default `UpdateUserBinding` → Unimplemented |
 | `ModuleManifestAuthBag` | Parse opaque `auth.loginFormFields` / `auth.bindFormFields` → discovery schemas |
 
-Password hashing and concrete `Authenticate` / `UpdateUserBinding` / `SeedAdminBinding` stay in the module. Prefer declaring login + bind form fields in `module.manifest.json`.
+Password hashing and concrete `Authenticate` / `UpdateUserBinding` stay in the module. Prefer declaring login + bind form fields in `module.manifest.json`. Empty-DB bootstrap is host invite OTP (AUTH-INVITE) — not a module RPC.
 
 Pack: `dotnet pack libs/Bardie.Module.Auth/Bardie.Module.Auth.csproj -c Release`

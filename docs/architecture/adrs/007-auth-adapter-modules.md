@@ -1,6 +1,6 @@
 # ADR 007: Auth Adapter Modules
 
-**Status:** Accepted (amended: modules issue/forward login JWTs + own refresh; Kithara verifies via JWKS + owns user DB and join secrets; Kithara mints JWTs only for **ephemeral guest users**; auth capabilities include `seedAdmin`; binding create/update via `UpdateUserBinding` / `bind_form`; force credential rotation for seeded admins with host control gate).
+**Status:** Accepted (amended: modules issue/forward login JWTs + own refresh; Kithara verifies via JWKS + owns user DB and join secrets; Kithara mints JWTs for **ephemeral guest users** and **claim-scoped invite JWTs** (`kithara.claim`); binding create/update via `UpdateUserBinding` / `bind_form`; **AUTH-INVITE** replaces `seedAdmin` / `SeedAdminBinding` for bootstrap and admin provision; **MustRotateCredentials** gates control only for module-signaled forced rotate — not invite completion).
 
 ## Context
 
@@ -8,13 +8,13 @@ Auth must be modular (login+password, OIDC, passkeys, custom) without forcing a 
 
 ## Decision
 
-- **Auth Harness** lives **inside Kithara** (discovery merge, route opaque auth/refresh payloads, **login JWT verification** via registered JWKS, **join secrets**, listen/guest secrets, **guest-code exchange**, **`seedAdmin` orchestration**). Kithara does **not** mint auth-module **login** JWTs.
+- **Auth Harness** lives **inside Kithara** (discovery merge, route opaque auth/refresh payloads, **login JWT verification** via registered JWKS, **join secrets**, listen/guest secrets, **guest-code exchange**, **invite OTP bootstrap / admin provision**). Kithara does **not** mint auth-module **login** JWTs (except **claim JWTs** after invite OTP for bind completion).
 - **Ephemeral guest users:** On protected-control guest-code exchange, Kithara creates a **new ephemeral guest user** per joiner, mints access (+ refresh) JWTs for that user, and destroys those users when the Struna is deleted. Rotating the guest code **blocks new joins only**. Not an auth-module account; still a `User` row for ACL / search cache. See [struna-access](../domains/struna-access.md).
 - **No built-in auth provider.** Every login method is a separate auth-adapter container on gRPC.
 - **Named adapters:** **Bes** (password, MVP), **Argus** (OIDC, v0.2), **Hecate** (passkeys, future). Modules are independent — no cross-module “modes.”
-- **Unified adapter contract:** `GetProviders` + `Authenticate` + `Refresh` + `UpdateUserBinding` + optional `SeedAdminBinding`. No protocol-specific RPCs. Opaque payloads for forms, callbacks, ceremonies. Authenticate is login-only — binding mutation uses `UpdateUserBinding` / `bind_form`.
-- **Capabilities** at Module Registry `Register` (e.g. `seedAdmin`). Bes advertises it; Argus typically does not.
-- **`SeedAdminBinding`:** Kithara invents DEFAULT_ADMIN, asks a capable module for a pre-filled binding + welcome text; Kithara logs it. Seeded admins get `must_rotate_credentials` and must clear it via `UpdateUserBinding` before control. Privileged RPC — only Kithara may call it (channel auth).
+- **Unified adapter contract:** `GetProviders` + `Authenticate` + `Refresh` + `UpdateUserBinding`. No protocol-specific RPCs. Opaque payloads for forms, callbacks, ceremonies. Authenticate is login-only — binding mutation uses `UpdateUserBinding` / `bind_form`. **No `SeedAdminBinding`.**
+- **Capabilities** at Module Registry `Register` (e.g. `updateBinding`). Bes advertises binding update; Argus typically does not.
+- **AUTH-INVITE:** When the user DB is empty, Kithara invents DEFAULT_ADMIN with a **host registration OTP** (log once). **`POST /api/auth/claim`** verifies OTP and mints a claim JWT (`must_complete_binding`). First bind via **`POST /api/auth/bindings/{provider}`** ceremony `bind` clears invite state; **`MustRotateCredentials` stays false** for invite completion. Admin **`POST /api/auth/register`** is username-only and returns **`registration_password` once** per user for the same path.
 - **Discovery schemas:** `login_form` → Authenticate; optional `bind_form` → UpdateUserBinding (ceremony bind | update).
 - **Unified credential protocol for login: JWT.** Modules return `access_token` (JWT) + `refresh_token`. **Argus** forwards OIDC tokens; **Bes** / **Hecate** mint their own. Kithara verifies login JWTs locally (module/IdP JWKS).
 - **User core + `UserAuthBinding`** live only in Kithara. Kinds: durable, managed, ephemeral guest — see [glossary](../glossary.md).
@@ -28,7 +28,7 @@ Auth must be modular (login+password, OIDC, passkeys, custom) without forcing a 
 
 - One Bardie user DB; login token issuance stays with auth modules / IdPs.
 - Guests are first-class principals for ACL and search-result ownership without becoming durable accounts.
-- Empty deploy can bootstrap via `seedAdmin` without a hardcoded Kithara password env.
+- Empty deploy can bootstrap via **host invite OTP** without a hardcoded Kithara password env or module seed RPC.
 - Plume never hardcodes password fields; stack works without Plume.
 - MVP Compose includes `bes` alongside Kithara.
 
@@ -44,7 +44,8 @@ Auth must be modular (login+password, OIDC, passkeys, custom) without forcing a 
 - **Adapter-owned user database** — rejected; second Bardie DB.
 - **Adapter-hosted login HTTP** — rejected; browsers must not call modules (ADR 003).
 - **Separate bot tokens vs join secrets** — rejected; one **join secret** class.
-- **First admin via Kithara env password** — rejected; prefer `seedAdmin` capability on the auth module.
+- **First admin via Kithara env password** — rejected; prefer host invite OTP (AUTH-INVITE).
+- **Module `SeedAdminBinding` / `seedAdmin` capability** — superseded by AUTH-INVITE (Jul 2026 amendment).
 
 **Related:** [domains/auth-adapters.md](../domains/auth-adapters.md) · [interfaces/auth.md](../interfaces/auth.md) · [interfaces/grpc-auth-adapter.md](../interfaces/grpc-auth-adapter.md)
 

@@ -6,7 +6,7 @@ namespace Bardie.Module.Auth;
 
 /// <summary>
 /// Thin AuthAdapter base: health, provider-id matching, denied helper,
-/// default SeedAdminBinding / UpdateUserBinding → Unimplemented.
+/// default UpdateUserBinding → Unimplemented.
 /// Concrete Authenticate / GetProviders / binding RPCs stay in the module.
 /// </summary>
 public abstract class AuthAdapterModuleBase : AuthAdapter.AuthAdapterBase
@@ -39,10 +39,4 @@ public abstract class AuthAdapterModuleBase : AuthAdapter.AuthAdapterBase
         ServerCallContext context) =>
         throw new RpcException(
             new Status(StatusCode.Unimplemented, "UpdateUserBinding is not supported by this auth module."));
-
-    public override Task<SeedAdminBindingResponse> SeedAdminBinding(
-        SeedAdminBindingRequest request,
-        ServerCallContext context) =>
-        throw new RpcException(
-            new Status(StatusCode.Unimplemented, "SeedAdminBinding is not supported by this auth module."));
 }

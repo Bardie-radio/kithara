@@ -51,7 +51,6 @@ public class AuthAdapterModuleBaseTests
                   { "name": "password", "label": "Password", "inputType": "password", "required": true }
                 ],
                 "bindFormFields": [
-                  { "name": "username", "label": "Username", "inputType": "text", "required": false },
                   { "name": "password", "label": "Password", "inputType": "password", "required": true }
                 ]
               }
@@ -70,17 +69,8 @@ public class AuthAdapterModuleBaseTests
 
         var bind = ModuleManifestAuthBag.TryBuildBindForm(manifest);
         Assert.NotNull(bind);
-        Assert.Equal(2, bind!.Fields.Count);
-        Assert.Equal("password", bind.Fields[1].Name);
-    }
-
-    [Fact]
-    public async Task SeedAdminBinding_default_is_unimplemented()
-    {
-        var adapter = new StubAdapter(new ModuleManifest { Slug = "bes", Kind = "auth" });
-        var ex = await Assert.ThrowsAsync<RpcException>(
-            () => adapter.SeedAdminBinding(new SeedAdminBindingRequest(), context: null!));
-        Assert.Equal(StatusCode.Unimplemented, ex.StatusCode);
+        Assert.Single(bind!.Fields);
+        Assert.Equal("password", bind.Fields[0].Name);
     }
 
     [Fact]

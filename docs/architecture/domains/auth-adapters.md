@@ -6,8 +6,8 @@ Auth modules plug into Kithara’s **Auth Harness** over one shared gRPC contrac
 
 | Layer | Owns |
 |-------|------|
-| **Auth module** (Bes, Argus, Hecate, …) | **`login_form` → Authenticate** (issue/forward JWTs + refresh); **`bind_form` → UpdateUserBinding** (bind + update ceremonies); optional **`SeedAdminBinding`** when `seedAdmin` advertised |
-| **Kithara** | Sole `User` rows (`/register`, seed); **verify** login JWTs via module JWKS; **mint/verify ephemeral guest JWTs**; listen/guest secrets; **join secrets**; merge discovery; route opaque bags; **MustRotate control gate**; orchestrate `seedAdmin` |
+| **Auth module** (Bes, Argus, Hecate, …) | **`login_form` → Authenticate** (issue/forward JWTs + refresh); **`bind_form` → UpdateUserBinding** (bind + update ceremonies) |
+| **Kithara** | Sole `User` rows (`/register`, invite bootstrap); **verify** login JWTs via module JWKS; **mint claim JWTs** after invite OTP; **mint/verify ephemeral guest JWTs**; listen/guest secrets; **join secrets**; merge discovery; route opaque bags; **MustRotate** + **must_complete_binding** control gates |
 
 Everything user-facing for **login** uses the **same JWT protocol** from auth modules. Argus typically **passes through** OIDC tokens; Bes/Hecate **forge** their own JWTs. Kithara does not mint login access tokens — it mints JWTs only for **ephemeral guest users** after guest-code exchange.
 
@@ -16,7 +16,7 @@ Everything user-facing for **login** uses the **same JWT protocol** from auth mo
 flowchart TB
   Client -->|discovery / authenticate / refresh| Kithara
   Kithara --> DB[(User + UserAuthBinding)]
-  Kithara -->|"GetProviders / Authenticate / Refresh / UpdateUserBinding / SeedAdminBinding"| AuthBox
+  Kithara -->|"GetProviders / Authenticate / Refresh / UpdateUserBinding"| AuthBox
   subgraph AuthBox [Auth adapters — shared gRPC]
     Bes[Bes]
     Argus[Argus]
@@ -60,29 +60,33 @@ The only other public party in OIDC is the **IdP** itself. Adapters do **not** e
 
 ```text
 User
-  id, created_at, status, …     ← Kithara-owned only
+  id, username (unique, immutable login id), created_at, status, …
+       ← Kithara-owned only; username set at invite/bootstrap, used for login
+       ← display_name (mutable host profile) reserved / backlog — not bind_form
 
 UserAuthBinding
   user_id + provider_slug       ← composite key (bes, argus, hecate, …)
-  external_subject?             ← module-supplied subject
-  payload (JSON)                ← dynamic data the module asks Kithara to store
+  external_subject              ← pinned to User.Username for durable invite users
+  payload (JSON)                ← module-owned binding material (e.g. password hash)
 ```
 
 | Provider | Typical `payload` examples |
 |----------|----------------------------|
-| Bes | password hash, reset metadata |
+| Bes | password hash, reset metadata — **not** username |
 | Argus | `sub`, claims snapshot, IdP refresh handle if needed |
 | Hecate | credential ids / attestation metadata |
+
+**Username is immutable.** Host invents it on empty-DB bootstrap (`admin`) or admin `POST /api/auth/register`. Clients log in with that id (`login_form` username = `User.Username`). Modules must not expose a rename path via `bind_form`.
 
 First successful login can JIT-provision a `User` + binding when the module asks Kithara to store the user.
 
 User **kinds** (durable / managed / ephemeral guest) — [glossary](../glossary.md). Ephemeral guests have no `UserAuthBinding`.
 
-### First admin / empty DB (`seedAdmin` → `SeedAdminBinding`)
+### First admin / empty DB (AUTH-INVITE)
 
-Auth modules **advertise capabilities** at Registry join. Modules that can invent local credentials (Bes) advertise `seedAdmin`. Modules that only reflect remote IdPs (Argus) typically do not.
+When the user DB is empty, Kithara creates **DEFAULT_ADMIN** with a **host-owned registration OTP** and logs it once to the **Kithara container log**. The operator claims via `POST /api/auth/claim`, then completes first bind with `POST /api/auth/bindings/{provider}` ceremony **`bind`** (Bes `bind_form`). **`MustRotateCredentials` stays false** for invite completion — control gating uses **`must_complete_binding`** on the claim JWT until bind succeeds; the invite OTP is cleared on bind.
 
-When the DB is empty, Kithara creates a durable `User` (DEFAULT_ADMIN username) and calls `SeedAdminBinding` on a capable adapter. The module returns a binding payload + welcome text; Kithara persists the binding and logs the welcome text (one-time secret) to the **Kithara container log**. Seeded admins must rotate via `UpdateUserBinding` before control (`must_rotate_credentials`). Privileged RPC — only Kithara may invoke it. Details: [grpc-auth-adapter](../interfaces/grpc-auth-adapter.md).
+Additional admins: authenticated operator **`POST /api/auth/register`** (**username only**) → **`registration_password` once** → same claim → bind path. No module seed RPC; Bes advertises **`updateBinding`** only. Details: [grpc-auth-adapter](../interfaces/grpc-auth-adapter.md), [auth](../interfaces/auth.md).
 
 ## Account linking
 

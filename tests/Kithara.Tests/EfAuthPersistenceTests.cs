@@ -1,4 +1,5 @@
 using Bardie.Harness.Auth.Ports;
+using Kithara.Features.Auth;
 using Kithara.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -70,6 +71,81 @@ public class EfAuthPersistenceTests
 
         Assert.Null(await harness.Persistence.FindUserByIdAsync(userId));
         Assert.False(await harness.Persistence.HasAnyAuthBindingsAsync());
+    }
+
+    [Fact]
+    public async Task CreateInvitedUser_and_complete_invite_clears_pending()
+    {
+        await using var harness = await CreateHarnessAsync();
+        var otp = "one-time-secret";
+        var userId = await harness.Persistence.CreateInvitedUserAsync(new CreateInvitedUserRequest(
+            "admin",
+            InviteOtp.Hash(otp),
+            ["admin"]));
+
+        Assert.True(await harness.Persistence.HasAnyDurableUsersAsync());
+        var pending = await harness.Persistence.FindUserByUsernameAsync("ADMIN");
+        Assert.NotNull(pending);
+        Assert.True(pending!.MustCompleteBinding);
+        Assert.Equal("admin", pending.Username);
+        Assert.Contains("admin", pending.InviteRoles!);
+        Assert.True(InviteOtp.Verify(pending.InvitePasswordHash, otp));
+
+        await harness.Persistence.EnsureUserWithBindingAsync(new EnsureUserBindingRequest(
+            "bes",
+            "admin",
+            "{}",
+            false,
+            Roles: ["admin"],
+            UserId: userId));
+        await harness.Persistence.CompleteInviteAsync(userId);
+        var done = await harness.Persistence.FindUserByIdAsync(userId);
+        Assert.NotNull(done);
+        Assert.False(done!.MustCompleteBinding);
+        Assert.Null(done.InvitePasswordHash);
+        Assert.False(done.MustRotateCredentials);
+        Assert.Equal(0, await harness.Persistence.DeleteUnboundDurableUsersAsync());
+    }
+
+    [Fact]
+    public async Task CreateInvitedUser_rejects_duplicate_username()
+    {
+        await using var harness = await CreateHarnessAsync();
+        await harness.Persistence.CreateInvitedUserAsync(new CreateInvitedUserRequest(
+            "alice",
+            InviteOtp.Hash("x"),
+            ["user"]));
+
+        await Assert.ThrowsAsync<AuthUsernameConflictException>(() =>
+            harness.Persistence.CreateInvitedUserAsync(new CreateInvitedUserRequest(
+                "Alice",
+                InviteOtp.Hash("y"),
+                ["user"])));
+    }
+
+    [Fact]
+    public async Task EnsureUserWithBinding_rejects_subject_matching_another_username()
+    {
+        await using var harness = await CreateHarnessAsync();
+        await harness.Persistence.CreateInvitedUserAsync(new CreateInvitedUserRequest(
+            "admin",
+            InviteOtp.Hash("otp"),
+            ["admin"]));
+        var alice = await harness.Persistence.CreateInvitedUserAsync(new CreateInvitedUserRequest(
+            "alice",
+            InviteOtp.Hash("otp2"),
+            ["user"]));
+
+        var ex = await Assert.ThrowsAsync<AuthBindingConflictException>(() =>
+            harness.Persistence.EnsureUserWithBindingAsync(new EnsureUserBindingRequest(
+                "bes",
+                "admin",
+                "{}",
+                false,
+                UserId: alice)));
+
+        Assert.Contains("username", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(await harness.Persistence.FindBindingByUserAsync(alice, "bes"));
     }
 
     private static async Task<PersistenceHarness> CreateHarnessAsync()

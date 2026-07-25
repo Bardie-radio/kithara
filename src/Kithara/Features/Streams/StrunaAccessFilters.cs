@@ -125,6 +125,12 @@ internal static class StrunaResourceGate
             {
                 return rotateDeny;
             }
+
+            var bindDeny = BindingCompletionGate.DenyIfRequired(principal);
+            if (bindDeny is not null)
+            {
+                return bindDeny;
+            }
         }
         else
         {
@@ -143,6 +149,12 @@ internal static class StrunaResourceGate
                 if (rotateDeny is not null)
                 {
                     return rotateDeny;
+                }
+
+                var bindDeny = BindingCompletionGate.DenyIfRequired(principal);
+                if (bindDeny is not null)
+                {
+                    return bindDeny;
                 }
             }
         }

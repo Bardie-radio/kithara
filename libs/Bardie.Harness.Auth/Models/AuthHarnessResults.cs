@@ -38,11 +38,11 @@ public sealed record RefreshResult(
     long ExpiresIn,
     string? FailureReason);
 
-public sealed record SeedAdminResult(
+public sealed record InviteBootstrapResult(
     bool Created,
-    string WelcomeLogText,
     Guid? UserId,
-    string? ExternalSubject);
+    string Username,
+    string RegistrationPassword);
 
 public sealed record UpdateUserBindingResult(
     bool Ok,

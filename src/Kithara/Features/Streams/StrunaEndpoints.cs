@@ -108,6 +108,12 @@ public static class StrunaEndpoints
             return rotateDeny;
         }
 
+        var bindDeny = BindingCompletionGate.DenyIfRequired(principal);
+        if (bindDeny is not null)
+        {
+            return bindDeny;
+        }
+
         var ceilingDeny = permissions.DenyReason(principal, ManagedPermissions.CreateStruna);
         if (ceilingDeny is not null)
         {

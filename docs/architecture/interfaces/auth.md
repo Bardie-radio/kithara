@@ -49,19 +49,24 @@ Redirect-style providers (Argus) set `ui.redirect.authorize_url`. The browser re
 | POST | `/api/auth/authenticate` | `login_form` bag → module `Authenticate` → if allowed, **module-issued (or forwarded) JWT** + refresh |
 | POST | `/api/auth/refresh` | Opaque refresh → **module** `Refresh` **or** host guest remint (see below) |
 | GET/POST | `/api/auth/callback` | Browser return for redirect flows; same path as authenticate — **not** OIDC-named |
-| POST | `/api/auth/register` | Admin creates durable `User` → module `UpdateUserBinding` ceremony `bind` + `bind_form` bag |
-| POST | `/api/auth/bindings/{provider}` | Self binding create/update → `UpdateUserBinding` (`bind` if none, else `update`) + same `bind_form` bag — includes forced rotate |
+| POST | `/api/auth/register` | Admin: create durable `User` (**username only**); response returns **`registration_password` once** (invite OTP) |
+| POST | `/api/auth/claim` | **Public.** Body: `username` + `registration_password` → Kithara-minted **claim-scoped JWT** (`bardie_provider=kithara.claim`, `must_complete_binding`) |
+| POST | `/api/auth/bindings/{provider}` | Binding create/update → `UpdateUserBinding` (`bind` if none, else `update`) + `bind_form` bag — invite completion uses ceremony `bind`; includes module-signaled forced rotate |
 
 Kithara does not mint login JWTs and does not interpret provider-specific crypto beyond verifying signatures with the module’s registered JWKS. It routes the bag, persists binding data when asked, and enforces Struna ACLs using claims/roles from the verified JWT (plus DB).
 
 - **Refresh (login):** entirely on the auth-module side.
 - **Refresh (ephemeral guest — Phase 6 / GUEST-REF-001):** host path on the same `POST /api/auth/refresh`. Detect Kithara guest (e.g. `bardie_provider=kithara.guest`), validate + remint until Struna teardown / capped lifetime — do **not** dial an auth adapter.
 - Revoke / logout: module- and IdP-dependent for login users; guests die with the Struna. Rotating the guest code **does not** kill existing guests — it only blocks new exchanges.
-- **`must_rotate_credentials`:** seeded admins (and any forced rotate) must complete `UpdateUserBinding` before control. Host returns `403` + `credentials_rotation_required` on play/queue/skip/grants/create while the flag is set; binding update remains allowed (AUTH-ROT-002).
+- **`must_complete_binding`:** invitees (claim JWT, `bardie_bind_only`, **no role claims**) may call **`GET /api/auth/me`** and **`POST /api/auth/bindings/{provider}`** only — all other authenticated REST returns `403` + `must_complete_binding` (**AUTH-CLAIM-001**). Invite roles live on the user row until bind. Ceremony `bind` clears invite state; claim **access and refresh** both stop resolving after `CompleteInvite`. Invite OTP cleared on the user row.
+- **`must_rotate_credentials`:** **module-signaled forced rotate only** — not invite completion. Host returns `403` + `credentials_rotation_required` on play/queue/skip/grants/create while the flag is set; binding update remains allowed (AUTH-ROT-002).
+- **`POST /api/auth/register`:** requires a fully bound admin — claim / pending-bind principals are rejected even if the JWT carries `admin`.
 
-## Bootstrap admin (`seedAdmin` → `SeedAdminBinding`)
+## Bootstrap admin and invites (AUTH-INVITE)
 
-When the user DB is empty, Kithara creates DEFAULT_ADMIN and calls `SeedAdminBinding` on an auth module that advertised the `seedAdmin` capability (Bes). The module returns binding material + welcome text; Kithara persists and logs the welcome text (one-time secret) to the **Kithara container log**. See [grpc-auth-adapter](grpc-auth-adapter.md).
+When the user DB is empty, Kithara invents **DEFAULT_ADMIN** with a **host-owned registration OTP** (logged once to the **Kithara container log** — same trust model as guest codes, not a public HTTP field). Operator flow: read OTP from logs → `POST /api/auth/claim` → claim JWT (**bindings + `/me` only** until bind) → `POST /api/auth/bindings/{provider}` ceremony **`bind`** with the module’s `bind_form` bag (password-only for Bes; host injects immutable `User.Username`) → claim tokens die → normal login JWT path. Admin **`POST /api/auth/register`** creates additional users (**username only**, immutable thereafter) and returns **`registration_password` once** per user for the same claim → bind path — **not** callable from a claim session.
+
+No `SeedAdminBinding` RPC and no `seedAdmin` capability — bootstrap and provision are entirely host-side invite OTP. See [grpc-auth-adapter](grpc-auth-adapter.md) and [domains/auth-adapters](../domains/auth-adapters.md).
 
 ## Guest control (protected Struna)
 

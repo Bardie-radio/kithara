@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Bardie.Harness.Auth.Ports;
 using Kithara.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +26,13 @@ public sealed class EfAuthPersistence : IAuthPersistence
         return await db.UserAuthBindings.AnyAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<bool> HasAnyDurableUsersAsync(CancellationToken cancellationToken = default)
+    {
+        await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        return await db.Users.AnyAsync(u => u.Kind == UserKind.Durable, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     public async Task<int> CountUsersAsync(CancellationToken cancellationToken = default)
     {
         await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
@@ -49,6 +57,93 @@ public sealed class EfAuthPersistence : IAuthPersistence
         return user.Id;
     }
 
+    public async Task<Guid> CreateInvitedUserAsync(
+        CreateInvitedUserRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.Username);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.InvitePasswordHash);
+
+        await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        var username = request.Username.Trim();
+        var exists = await db.Users.AnyAsync(
+                u => u.Username != null && u.Username.ToLower() == username.ToLower(),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (exists)
+        {
+            throw new AuthUsernameConflictException($"Username '{username}' is already taken.");
+        }
+
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Kind = UserKind.Durable,
+            CreatedAt = DateTimeOffset.UtcNow,
+            Status = "active",
+            Username = username,
+            InvitePasswordHash = request.InvitePasswordHash,
+            MustCompleteBinding = true,
+            MustRotateCredentials = request.MustRotateCredentials,
+            InviteRolesJson = SerializeRoles(request.Roles),
+        };
+        db.Users.Add(user);
+        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return user.Id;
+    }
+
+    public async Task<AuthUserRecord?> FindUserByUsernameAsync(
+        string username,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            return null;
+        }
+
+        await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        var needle = username.Trim();
+        var user = await db.Users.AsNoTracking()
+            .FirstOrDefaultAsync(
+                u => u.Username != null && u.Username.ToLower() == needle.ToLower(),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return user is null ? null : MapUser(user);
+    }
+
+    public async Task<bool> UsernameExistsAsync(string username, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            return false;
+        }
+
+        await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        var needle = username.Trim();
+        return await db.Users.AnyAsync(
+                u => u.Username != null && u.Username.ToLower() == needle.ToLower(),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    public async Task CompleteInviteAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken)
+            .ConfigureAwait(false);
+        if (user is null)
+        {
+            return;
+        }
+
+        user.InvitePasswordHash = null;
+        user.MustCompleteBinding = false;
+        user.MustRotateCredentials = false;
+        user.InviteRolesJson = null;
+        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task DeleteUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
@@ -66,8 +161,12 @@ public sealed class EfAuthPersistence : IAuthPersistence
     public async Task<int> DeleteUnboundDurableUsersAsync(CancellationToken cancellationToken = default)
     {
         await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        // Keep pending invites (MustCompleteBinding / InvitePasswordHash) — they are intentional.
         var orphans = await db.Users
-            .Where(u => u.Kind == UserKind.Durable && !u.AuthBindings.Any())
+            .Where(u => u.Kind == UserKind.Durable
+                && !u.AuthBindings.Any()
+                && !u.MustCompleteBinding
+                && u.InvitePasswordHash == null)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
         if (orphans.Count == 0)
@@ -90,7 +189,9 @@ public sealed class EfAuthPersistence : IAuthPersistence
             .AsNoTracking()
             .Include(b => b.User)
             .FirstOrDefaultAsync(
-                b => b.ProviderSlug == providerSlug && b.ExternalSubject == externalSubject,
+                b => b.ProviderSlug == providerSlug
+                    && b.ExternalSubject != null
+                    && b.ExternalSubject.ToLower() == externalSubject.ToLower(),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -150,7 +251,8 @@ public sealed class EfAuthPersistence : IAuthPersistence
             .Include(b => b.User)
             .FirstOrDefaultAsync(
                 b => b.ProviderSlug == request.ProviderSlug
-                    && b.ExternalSubject == request.ExternalSubject,
+                    && b.ExternalSubject != null
+                    && b.ExternalSubject.ToLower() == request.ExternalSubject.ToLower(),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -185,7 +287,8 @@ public sealed class EfAuthPersistence : IAuthPersistence
             .AsNoTracking()
             .FirstOrDefaultAsync(
                 b => b.ProviderSlug == request.ProviderSlug
-                    && b.ExternalSubject == request.ExternalSubject,
+                    && b.ExternalSubject != null
+                    && b.ExternalSubject.ToLower() == request.ExternalSubject.ToLower(),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -193,6 +296,20 @@ public sealed class EfAuthPersistence : IAuthPersistence
         {
             throw new AuthBindingConflictException(
                 $"External subject '{request.ExternalSubject}' is already bound for provider '{request.ProviderSlug}'.");
+        }
+
+        // Refuse claiming another durable user's host Username as a module subject (AUTH-INVITE).
+        var usernameOwner = await db.Users.AsNoTracking()
+            .FirstOrDefaultAsync(
+                u => u.Username != null
+                    && u.Username.ToLower() == request.ExternalSubject.ToLower()
+                    && u.Id != explicitUserId,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (usernameOwner is not null)
+        {
+            throw new AuthBindingConflictException(
+                $"External subject '{request.ExternalSubject}' conflicts with another user's username.");
         }
 
         var binding = await db.UserAuthBindings
@@ -259,7 +376,9 @@ public sealed class EfAuthPersistence : IAuthPersistence
             .AsNoTracking()
             .Include(b => b.User)
             .FirstOrDefaultAsync(
-                b => b.ProviderSlug == providerSlug && b.ExternalSubject == externalSubject,
+                b => b.ProviderSlug == providerSlug
+                    && b.ExternalSubject != null
+                    && b.ExternalSubject.ToLower() == externalSubject.ToLower(),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -268,13 +387,7 @@ public sealed class EfAuthPersistence : IAuthPersistence
             return null;
         }
 
-        return new AuthUserRecord(
-            binding.UserId,
-            binding.User.Kind.ToString(),
-            binding.User.Status,
-            binding.User.MustRotateCredentials,
-            binding.User.GuestStrunaId,
-            binding.User.ManagedByModuleSlug);
+        return MapUser(binding.User);
     }
 
     public async Task<AuthUserRecord?> FindUserByIdAsync(
@@ -285,18 +398,7 @@ public sealed class EfAuthPersistence : IAuthPersistence
         var user = await db.Users.AsNoTracking()
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken)
             .ConfigureAwait(false);
-        if (user is null)
-        {
-            return null;
-        }
-
-        return new AuthUserRecord(
-            user.Id,
-            user.Kind.ToString(),
-            user.Status,
-            user.MustRotateCredentials,
-            user.GuestStrunaId,
-            user.ManagedByModuleSlug);
+        return user is null ? null : MapUser(user);
     }
 
     public async Task SetMustRotateAsync(
@@ -314,5 +416,45 @@ public sealed class EfAuthPersistence : IAuthPersistence
 
         user.MustRotateCredentials = mustRotateCredentials;
         await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static AuthUserRecord MapUser(User user) =>
+        new(
+            user.Id,
+            user.Kind.ToString(),
+            user.Status,
+            user.MustRotateCredentials,
+            user.GuestStrunaId,
+            user.ManagedByModuleSlug,
+            user.Username,
+            user.MustCompleteBinding,
+            user.InvitePasswordHash,
+            DeserializeRoles(user.InviteRolesJson));
+
+    private static string? SerializeRoles(IReadOnlyList<string> roles)
+    {
+        if (roles.Count == 0)
+        {
+            return null;
+        }
+
+        return JsonSerializer.Serialize(roles);
+    }
+
+    private static IReadOnlyList<string>? DeserializeRoles(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<string[]>(json);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 }

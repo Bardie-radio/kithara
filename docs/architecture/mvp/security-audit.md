@@ -34,7 +34,7 @@ Historical aliases (`SEC-*`, `NEW-*`, `DES-*`, `KI-*`, `QA-*`, `DOC-*`, `OPS-*`)
 | Steady state (`Heartbeat`, work RPCs) | mTLS client cert signed by host CA | Join secret |
 | Host CA / server TLS | Files under `BARDIE_GRPC_TLS_DATA_PATH` | Ephemeral in-memory-only CA when the path is empty |
 
-**Design intent (agreed):** after Register, this module container speaks only with its paired Kithara, and that Kithara dials only that slug/ID. Privileged RPCs (`SeedAdmin`, …) rely on **channel identity**, not a second app-level ACL on the module.
+**Design intent (agreed):** after Register, this module container speaks only with its paired Kithara, and that Kithara dials only that slug/ID. Privileged RPCs (`UpdateUserBinding`, …) rely on **channel identity**, not a second app-level ACL on the module.
 
 **Auto** bootstrap may return `client_private_key_pem` on `RegisterResponse` — **private mesh / trusted LAN only**. Prefer **preshared** when gRPC may cross untrusted networks ([grpc-module-registry](../interfaces/grpc-module-registry.md)).
 
@@ -75,8 +75,8 @@ Historical aliases (`SEC-*`, `NEW-*`, `DES-*`, `KI-*`, `QA-*`, `DOC-*`, `OPS-*`)
 |----|---------------|-----------|
 | **GUEST-REF-001** | `GuestJwtService.TryRefreshAsync`; `POST /api/auth/refresh` short-circuits `kithara.guest` | — |
 | **LIB-TUNE-001** | `LibraryService.EnsureTune` → `BlobKeyLayout.EnsureKeyOwnedBy` | — |
-| **AUTH-ROT-001** | `SeedAdminBinding` + `UpdateUserBinding` / `bind_form`; Authenticate login-only | — |
-| **AUTH-ROLE-001** | Roles from binding; SeedAdminBinding = admin once; default `user` | — |
+| **AUTH-ROT-001** | `UpdateUserBinding` / `bind_form`; Authenticate login-only; host control deny for module-signaled rotate | — |
+| **AUTH-ROLE-001** | Roles from binding; first admin via invite bind; default `user` | — |
 | **AUTH-JWKS-001** | JWKS snapshot + hosted refresh; resolver reads cache only | — |
 | **GUEST-XCHG-001** | `guest-exchange` fixed window 10/min per IP+Struna | — |
 | **MESH-CHN-001** | `CertificateIdentity.IsHostClient` inbound; `expectedServerIdentity` outbound | — |
@@ -87,9 +87,10 @@ Historical aliases (`SEC-*`, `NEW-*`, `DES-*`, `KI-*`, `QA-*`, `DOC-*`, `OPS-*`)
 | ID | Sev | Summary | Owner |
 |----|-----|---------|-------|
 | **AUTH-ROT-002** | P1 | Host denies control while `must_rotate` (`403` + `credentials_rotation_required`) | **Fixed** (Phase 8) |
-| **AUTH-SEED-001** | P1 | SeedAdmin orphan deadlock (`CreateDurableUser` then failed `SeedAdminBinding`) | **Fixed** — rollback + binding-gated bootstrap |
+| **AUTH-SEED-001** | P1 | Orphan user when bootstrap/register failed before binding persisted | **Fixed** — superseded by **AUTH-INVITE** (host invite OTP + claim bind); historical SeedAdmin path retired |
 | **AUTH-BIND-001** | P1 | Register subject collision / overwrite via `EnsureUserWithBinding` | **Fixed** — explicit-user path never steals subjects; register rolls back |
-| **AUTH-DISP-001** | P2 | No host `User.Username`; login id is Bes `external_subject` / seed `"admin"` | **Open** — display/unique Kithara username |
+| **AUTH-DISP-001** | P2 | No host `User.Username`; login id is Bes `external_subject` / seed `"admin"` | **Fixed** — immutable unique `User.Username`; `/me` + `must_complete_binding` |
+| **AUTH-CLAIM-001** | P1 | Claim JWT `bardie_bind_only` unread; admin claim could `/register` + search; access survived bind | **Fixed** — allow-list bindings+`/me`; no roles on claim JWT; register rejects pending; claim access dies after `CompleteInvite` |
 | **NECK-JOB-001** | P2 | TrackStatus disconnect without terminal event can orphan Neck jobs | Phase 8 / Neck polish — drives [NECK-SWP-001](known-issues.md#neck-swp-001--orphan-writer-sweep-runs-on-every-play-including-new-strunas) / [kithara#26](https://github.com/Bardie-radio/kithara/issues/26) |
 | **GUEST-XCHG-002** | P2 | Guest failure lockout (5 failures → 15 min) | **Fixed** (Phase 8) |
 | **STREAM-TOK-001** | P2 | Listen-token compare not constant-time | **Fixed** — `CryptographicOperations.FixedTimeEquals` |
@@ -146,24 +147,24 @@ gRPC checks `module_slug ==` caller identity, then passes `StorageKey` through w
 ## AUTH-ROT-001 — `must_rotate_credentials` is advisory forever
 
 **Severity:** P0  
-**Component:** Bes `SeedAdminBinding` / `Authenticate` / host control  
-**Fix:** Phase **6** (partial) → **8** (closed)
+**Component:** Bes `Authenticate` / host control / invite bootstrap  
+**Fix:** Phase **6** (partial) → **8** (closed); **AUTH-INVITE** retires module seed mint
 
-`SeedAdmin` invented users and Authenticate accepted `new_password` for rotate; the host never denied control while `MustRotateCredentials` was set.
+Historically, module seed paths invented users and Authenticate accepted `new_password` for rotate; the host never denied control while `MustRotateCredentials` was set.
 
-**Remediation (shipped):** Kithara invents DEFAULT_ADMIN → `SeedAdminBinding`; binding create/update via `UpdateUserBinding` + discovery `bind_form` (ceremony bind/update). Authenticate is login-only. Host returns `403` + `credentials_rotation_required` on control while rotate is required (AUTH-ROT-002). Seed/register roll back unbound users on failure (AUTH-SEED-001); explicit-user bind refuses subject theft (AUTH-BIND-001). Host display username still open (AUTH-DISP-001).
+**Remediation (shipped):** Binding create/update via `UpdateUserBinding` + discovery `bind_form` (ceremony bind/update). Authenticate is login-only. **Bootstrap and admin provision** use host invite OTP → claim JWT → bind ceremony — **`MustRotateCredentials` is not used for invite completion**; **`must_complete_binding`** gates control until first bind. Host returns `403` + `credentials_rotation_required` on control only for **module-signaled** forced rotate (AUTH-ROT-002). Register rolls back unbound users on failure (AUTH-SEED-001 / AUTH-BIND-001); explicit-user bind refuses subject theft. Host **`User.Username`** unique (AUTH-DISP-001).
 
 ---
 
-## AUTH-SEED-001 — SeedAdmin orphan deadlock
+## AUTH-SEED-001 — Bootstrap orphan deadlock (historical)
 
 **Severity:** P1  
-**Component:** `AuthModuleHarness.TrySeedAdminAsync` / bootstrap  
-**Fix:** Phase **8**
+**Component:** Host bootstrap / register (historical `TrySeedAdminAsync`)  
+**Fix:** Phase **8** → **superseded by AUTH-INVITE**
 
-`CreateDurableUserAsync` before `SeedAdminBinding`; on RPC failure the user row remained, `HasAnyUsersAsync` blocked retries, no admin binding.
+Historically: durable user created before module seed RPC; on RPC failure the user row remained, `HasAnyUsersAsync` blocked retries, no admin binding.
 
-**Remediation (shipped):** Gate bootstrap on bindings; delete unbound durables before seed; delete the created user when SeedAdminBinding or persist fails.
+**Remediation (shipped):** Roll back unbound durables on failed bind/register. **Current design:** empty DB and admin **`/register`** use **host invite OTP** only — no `SeedAdminBinding`. Claim → bind completes the admin; invite cleared on successful bind.
 
 ---
 
@@ -175,31 +176,43 @@ gRPC checks `module_slug ==` caller identity, then passes `StorageKey` through w
 
 Explicit-user ensure fell back to `(provider, externalSubject)` and could overwrite another user's binding; failed bind left orphan users.
 
-**Remediation (shipped):** Explicit `UserId` path only mutates that user's binding and throws `AuthBindingConflictException` on subject collision; register deletes the user when bind fails.
+**Remediation (shipped):** Explicit `UserId` path only mutates that user's binding and throws `AuthBindingConflictException` on subject collision (including case-insensitive match and conflict with another user's host `Username`); register deletes the user when bind fails. **AUTH-INVITE follow-up:** host pins `ExternalSubject` to `User.Username` on bind/update and strips client-supplied username on update so invitees cannot rename their Bes login id to `admin` (or any other host username).
 
 ---
 
 ## AUTH-DISP-001 — No host `User.Username`
 
 **Severity:** P2  
-**Component:** User entity / discovery display  
-**Fix:** backlog (post AUTH-ROT close)
+**Component:** User entity / `/api/auth/me`  
+**Fix:** **Fixed** (AUTH-INVITE)
 
-Login id lives as Bes `external_subject` (seed string `"admin"`). Unique Kithara username / display name not landed.
+Login id previously lived only as Bes `external_subject` (seed string `"admin"`). Unique Kithara username and invite completion flag were missing from the host API.
 
-**Remediation:** Add host-owned unique username (or equivalent) separate from adapter subject; wire into `/me` and UI.
+**Remediation (shipped):** **`User.Username` unique and immutable** on durable users (set at bootstrap / admin register; login id). **`GET /api/auth/me`** returns **`username`** and **`must_complete_binding`**. Claim JWT (`kithara.claim`) carries invite state until first bind clears it. Module `bind_form` must not rename the subject — host pins `ExternalSubject` to `Username`. Mutable **`display_name`** remains backlog (host profile field, not bag).
+
+---
+
+## AUTH-CLAIM-001 — Claim bind-only not enforced
+
+**Severity:** P1  
+**Component:** Claim JWT / `RequirePrincipalFilter` / `POST /api/auth/register` / search  
+**Fix:** **Fixed** (auth-invite-bindonly)
+
+Claim JWTs minted `bardie_bind_only=true` and roles from the invite (including `admin`), but the host never read the flag. A bootstrap claim principal could `POST /api/auth/register` (admin role only), hit `/api/search`, and keep a valid access token until TTL after `CompleteInvite` (refresh already stopped).
+
+**Remediation (shipped):** `BindOnlyGate` allow-lists claim / pending-bind principals to **`GET /api/auth/me`** and **`POST /api/auth/bindings/{provider}`** only (403 `must_complete_binding` elsewhere). `/register` rejects claim/pending before the admin role check. Claim JWTs carry **no role claims** — invite roles stay on the user row and apply only at bind. `AuthPrincipal` resolves claim access only while `MustCompleteBinding` remains true — access dies after bind like refresh. Plume clears the claim session on BFF bind and treats claim sessions as registration-only in the chrome.
 
 ---
 
 ## AUTH-ROLE-001 — Every successful login mints `roles=[admin]`
 
 **Severity:** P0  
-**Component:** Bes Authenticate / Refresh / SeedAdmin mint  
+**Component:** Bes Authenticate / Refresh mint  
 **Fix:** Phase **6** (Bes; harness must not invent admin)
 
-Authenticate, Refresh, and SeedAdmin hardcode `roles=[admin]` into JWT/claims. Any valid Bes credential is full admin — privilege escalation in the mint path, not “multi-user polish later.”
+Authenticate and Refresh had hardcoded `roles=[admin]` into JWT/claims. Any valid Bes credential was full admin — privilege escalation in the mint path, not “multi-user polish later.”
 
-**Remediation:** Persist roles on user/binding; return those on mint/refresh. `SeedAdmin` alone creates `admin`; later subjects default `user` (or empty) unless seeded.
+**Remediation:** Persist roles on user/binding; return those on mint/refresh. First admin via **invite bind** gets roles from binding; later subjects default `user` (or empty) unless elevated on bind.
 
 ---
 
@@ -233,7 +246,7 @@ Endpoint is open; short guest codes are brute-forceable without rate limiting.
 **Component:** `Bardie.Module.Channel` (`UseBardieModuleWorkGrpc`, host→module dials)  
 **Fix:** Phase **4** (Channel hardening as Neck intensifies dials)
 
-**Not a Bes `SeedAdmin` special-case.** Design already says only the paired Kithara may call privileged work RPCs. Bes correctly assumes channel auth = host identity.
+**Not a Bes seed special-case.** Design already says only the paired Kithara may call privileged work RPCs. Bes correctly assumes channel auth = host identity.
 
 **Gap:** work-port validation accepts any client cert that chains to the mesh CA (a module `CN=magpie` would pass). Host→module dials use `trustRemoteServerCertificate` (any work-port server cert). Network isolation in Compose may hide this; crypto identity does not yet match the bilateral pairing design.
 
@@ -321,16 +334,16 @@ Join secret is the **bootstrap** credential before mTLS exists. Auto deliberatel
 - [ ] Document who can read Compose/secret store (same trust as join secrets)
 - [x] Guest refresh works for `kithara.guest` (GUEST-REF-001)
 - [x] Guest exchange rate-limited (GUEST-XCHG-001 — lockout GUEST-XCHG-002)
-- [x] Bes roles from binding; SeedAdminBinding is first admin only (AUTH-ROLE-001)
-- [x] `must_rotate` cleared via `UpdateUserBinding` / `bind_form`; host control deny (AUTH-ROT-001 / AUTH-ROT-002)
+- [x] Bes roles from binding; first admin via invite bind (AUTH-ROLE-001)
+- [x] `must_rotate` cleared via `UpdateUserBinding` / `bind_form` (module-signaled only); invite uses `must_complete_binding` (AUTH-ROT-001 / AUTH-ROT-002)
 - [x] JWKS snapshot warm on auth Register; fail-closed (AUTH-JWKS-002)
-- [x] SeedAdmin / register orphan rollback; subject collision refuse (AUTH-SEED-001 / AUTH-BIND-001)
+- [x] Register orphan rollback; subject collision refuse (AUTH-SEED-001 / AUTH-BIND-001)
+- [x] Host `User.Username` + `/me` invite fields (AUTH-DISP-001)
 - [x] Listen-token FixedTimeEquals (STREAM-TOK-001)
 - [x] Channel host↔slug pin on work dials (MESH-CHN-001)
 - [x] Plume BFF: no JWT in browser; discovery without provider-id branching; CSP + antiforgery (PLUME-SEC-001/002)
 - [x] Plume `/player` may autoplay (product intent — docs under META-DOC-001)
 - [ ] Phase 8: host E2E + module tests + remaining doc sweep
-- [ ] AUTH-DISP-001: host `User.Username` / unique display id
 
 ---
 
@@ -365,7 +378,7 @@ Join secret is the **bootstrap** credential before mTLS exists. Auto deliberatel
 - [implementation-plan](implementation-plan.md) — Phase 4–6 closed; soft residuals → Phase 8
 - [known-issues](known-issues.md) — non-security footguns (`NECK-*` / product polish)
 - [grpc-module-registry](../interfaces/grpc-module-registry.md) — dial rules + auto vs preshared
-- [grpc-auth-adapter](../interfaces/grpc-auth-adapter.md) — SeedAdmin / privileged RPCs
+- [grpc-auth-adapter](../interfaces/grpc-auth-adapter.md) — UpdateUserBinding / invite bootstrap (AUTH-INVITE)
 - [module-channel](../operations/module-channel.md) — Channel library
 - [configuration](../operations/configuration.md) — `BARDIE_JOIN_SECRETS`, TLS env knobs
 - [deployment](../operations/deployment.md) — ports and networking

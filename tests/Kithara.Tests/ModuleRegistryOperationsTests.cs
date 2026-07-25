@@ -89,7 +89,7 @@ public class ModuleRegistryOperationsTests
             JoinSecret = "auth-secret",
             Kind = WellKnownModuleKinds.Auth,
             GrpcAdvertiseAddress = "bes:5001",
-            Capabilities = { "seedAdmin", "updateBinding" },
+            Capabilities = { "updateBinding" },
             Auth = new AuthRegisterDetails { JwksJson = jwksJson },
         });
 
@@ -117,7 +117,7 @@ public class ModuleRegistryOperationsTests
             JoinSecret = "auth-secret",
             Kind = WellKnownModuleKinds.Auth,
             GrpcAdvertiseAddress = "bes:5001",
-            Capabilities = { "seedAdmin", "updateBinding" },
+            Capabilities = { "updateBinding" },
             Auth = new AuthRegisterDetails { JwksUri = "https://bes.invalid/.well-known/jwks.json" },
         }));
 

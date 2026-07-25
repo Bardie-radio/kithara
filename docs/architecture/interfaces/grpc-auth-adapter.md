@@ -6,9 +6,9 @@ Auth adapters (**Bes**, **Argus**, **Hecate**, …) speak **one** work contract.
 
 **Unified token protocol for login: JWT.** Modules authenticate/verify and **return access + refresh JWTs** (mint their own, or forward a provider’s — Argus forwards OIDC tokens). Kithara stores users/bindings and verifies those JWTs via module JWKS.
 
-Kithara does **not** mint auth-module login JWTs. It **does** mint JWTs for **ephemeral guest users** after guest-code exchange — see [auth](auth.md).
+Kithara does **not** mint auth-module login JWTs. It **does** mint JWTs for **ephemeral guest users** after guest-code exchange — see [auth](auth.md). Kithara also mints **claim-scoped** JWTs after invite OTP verification (**AUTH-INVITE**) — provider `kithara.claim`; see [auth](auth.md).
 
-**Authenticate is login-only.** Credential/binding create and update go through **`UpdateUserBinding`** (and **`SeedAdminBinding`** for empty-DB bootstrap). Modules must not mutate bindings inside `Authenticate`.
+**Authenticate is login-only.** Credential/binding create and update go through **`UpdateUserBinding`** only. Modules must not mutate bindings inside `Authenticate`. Empty-DB bootstrap and admin provision are **host-owned invite OTP** — there is no `SeedAdminBinding` RPC and no `seedAdmin` capability.
 
 ```protobuf
 service AuthAdapter {
@@ -17,7 +17,6 @@ service AuthAdapter {
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse);
   rpc Refresh(RefreshRequest) returns (RefreshResponse);
   rpc UpdateUserBinding(UpdateUserBindingRequest) returns (UpdateUserBindingResponse);
-  rpc SeedAdminBinding(SeedAdminBindingRequest) returns (SeedAdminBindingResponse);
 }
 ```
 
@@ -29,48 +28,21 @@ Capabilities are **optional feature flags within kind `auth`**. They gate host R
 
 | Capability | Status | Meaning |
 |------------|--------|---------|
-| `seedAdmin` | **MVP** | Host may call `SeedAdminBinding` when the user DB is empty |
-| `updateBinding` | **MVP** | Host may expose `UpdateUserBinding` + discovery `bind_form` (self-service update / forced rotate) |
-| `selfRegister` | Reserved | Open signup: host exposes `bind_form` → `UpdateUserBinding` ceremony `bind` without operator seed — advertise only when implemented |
+| `updateBinding` | **MVP** | Host may expose `UpdateUserBinding` + discovery `bind_form` (invite bind, self-service update / module-signaled forced rotate) |
+| `selfRegister` | Reserved | Open signup: host exposes `bind_form` → `UpdateUserBinding` ceremony `bind` without operator invite — advertise only when implemented |
 | `passwordReset` | Reserved | Host/UI can expose reset; module owns ceremony via `bind_form` / dedicated flow later — advertise only when implemented |
 
 **Not a module capability:** account linking stays **Kithara’s story** (explicit multi-provider link in the user DB / harness). Auth adapters only prove identity for their provider — they do not advertise `accountLink`.
 
-**Bes** advertises `seedAdmin` + `updateBinding` for MVP (`module.manifest.json`). **Argus** typically advertises neither — IdP users are discovered/linked, not locally invented or password-edited on Kithara.
-
-### `SeedAdminBinding`
-
-Called by Kithara when the user DB is empty (or operator forces re-seed). **Kithara invents** the durable `User` (DEFAULT_ADMIN username) and asks the module for a pre-filled binding bag + welcome fragment. Kithara persists the binding and writes the welcome fragment to **its container log** — never to a public HTTP surface.
-
-```protobuf
-message SeedAdminBindingRequest {
-  string user_id = 1;         // Kithara-created user id
-  string username = 2;        // host-chosen login id (e.g. "admin")
-  string correlation_id = 3;  // optional operator hint — not secrets
-}
-
-message SeedAdminBindingResponse {
-  bool created = 1;
-  string welcome_log_text = 2;  // includes one-time credentials; Kithara logs only
-  string external_subject = 3;
-  bytes binding_payload = 4;
-  bool must_rotate_credentials = 5;
-  repeated string roles = 6;
-  map<string, string> entities = 7;
-}
-```
-
-Seeded admins **must** change credentials before control (`must_rotate_credentials` on the user). Clear the flag via **`UpdateUserBinding`** ceremony `update` with the module’s **`bind_form`** bag after a fresh **`Authenticate`** (or redirect) — not by stuffing login credentials into the bind RPC, and not via `Authenticate` alone.
-
-**Security:** `SeedAdminBinding` is a privileged RPC. Only Kithara may invoke it — after Module Registry handshake, **mTLS** (client cert issued at Register) identifies Kithara→module calls. Modules must reject callers without a valid Kithara-issued cert. Same class of protection applies to `UpdateUserBinding`.
+**Bes** advertises **`updateBinding`** for MVP (`module.manifest.json`). **Argus** typically advertises neither — IdP users are discovered/linked, not locally password-edited on Kithara.
 
 ### `UpdateUserBinding`
 
-One binding bag for **initial bind** and **later update** (forced rotate + voluntary self-change). Ceremony distinguishes:
+One binding bag for **initial bind** and **later update** (module-signaled forced rotate + voluntary self-change). Ceremony distinguishes:
 
 | Ceremony | When |
 |----------|------|
-| `bind` | First binding for this user↔provider (admin `/register`, open `selfRegister` later) |
+| `bind` | First binding for this user↔provider (admin `/register` invite completion, open `selfRegister` later) |
 | `update` | Replace existing binding (forced rotate, account settings) |
 
 ```protobuf
@@ -93,7 +65,9 @@ message UpdateUserBindingResponse {
 }
 ```
 
-UI is gated by **`updateBinding`** (or reserved `selfRegister`) on Register **and** `bind_form` on discovery (+ `seedAdmin` for seed). There is **no** separate `update_form` / password-reset form entity.
+UI is gated by **`updateBinding`** (or reserved `selfRegister`) on Register **and** `bind_form` on discovery. There is **no** separate `update_form` / password-reset form entity.
+
+**Security:** `UpdateUserBinding` is a privileged RPC. Only Kithara may invoke it — after Module Registry handshake, **mTLS** (client cert issued at Register) identifies Kithara→module calls. Modules must reject callers without a valid Kithara-issued cert.
 
 ## Discovery UI (no module-name branching)
 
@@ -137,7 +111,7 @@ message AuthenticateResponse {
   string refresh_token = 8;
   string token_type = 9;
   int64 expires_in = 10;
-  bool must_rotate_credentials = 11; // advisory on token; host denies control until cleared via UpdateUserBinding
+  bool must_rotate_credentials = 11; // advisory on token; host denies control until cleared via UpdateUserBinding (module-signaled rotate only — not invite bind)
 }
 ```
 
@@ -147,18 +121,19 @@ Invariants (frozen for v0.1):
 2. **Module owns issue + refresh** for those JWTs; Kithara verifies and authorizes.
 3. **Kithara owns** user DB rows; modules return binding payloads for Kithara to store.
 4. **Kithara passes** `existing_binding_payload` so DB-less adapters (Bes) can verify password proofs without a local store.
-5. **Capabilities** decide whether Kithara may call `SeedAdminBinding` (and later reserved caps).
-6. **Binding mutation** is never on `Authenticate` — only `UpdateUserBinding` / `SeedAdminBinding`.
+5. **Capabilities** gate whether the host exposes `UpdateUserBinding` / `bind_form` (and later reserved caps).
+6. **Binding mutation** is never on `Authenticate` — only `UpdateUserBinding`.
+7. **Bootstrap / admin provision** uses host invite OTP + claim JWT — not module seed RPCs.
 
 ## How modules use the same RPCs
 
-| Module | Discovery | Authenticate / tokens | Binding | `seedAdmin` |
-|--------|-----------|------------------------|---------|-------------|
-| **Bes** | `login_form` + `bind_form` | Verifies password; **mints** JWT (+ refresh) | Opaque bind bag; step-up = Authenticate; caps `seedAdmin` + `updateBinding` | Yes (`SeedAdminBinding`) |
-| **Argus** | `redirect` | Completes OIDC; **forwards** IdP JWTs | Optional / JIT | No (typical) |
+| Module | Discovery | Authenticate / tokens | Binding | Capabilities |
+|--------|-----------|------------------------|---------|--------------|
+| **Bes** | `login_form` + `bind_form` | Verifies password; **mints** JWT (+ refresh) | Opaque bind bag; step-up = Authenticate | `updateBinding` |
+| **Argus** | `redirect` | Completes OIDC; **forwards** IdP JWTs | Optional / JIT | None (typical) |
 | **Hecate** | future ceremony `ui` case | Completes WebAuthn; **mints** JWT (+ refresh) | TBD | TBD |
 
-JWT-minting adapters (Bes, typically Hecate) may embed packable **`Bardie.Module.Auth`** for mint/refresh/JWKS Register attach and a thin `AuthAdapterModuleBase` (`Health`, provider-id checks, default `SeedAdminBinding` / `UpdateUserBinding` → Unimplemented). Password/OIDC/passkey ceremony stays in the module. Participant Program bootstrap + Bardie Compose env aliases live in **`Bardie.Module.Hosting`**. Mesh mTLS stays in **`Bardie.Module.Channel`**.
+JWT-minting adapters (Bes, typically Hecate) may embed packable **`Bardie.Module.Auth`** for mint/refresh/JWKS Register attach and a thin `AuthAdapterModuleBase` (`Health`, provider-id checks, default `UpdateUserBinding` → Unimplemented). Password/OIDC/passkey ceremony stays in the module. Participant Program bootstrap + Bardie Compose env aliases live in **`Bardie.Module.Hosting`**. Mesh mTLS stays in **`Bardie.Module.Channel`**.
 
 **Related:** [grpc-module-registry](grpc-module-registry.md) · [domains/auth-adapters.md](../domains/auth-adapters.md) · [interfaces/auth.md](auth.md) · [ADR 007](../adrs/007-auth-adapter-modules.md) · [Bardie.Contracts](../../../libs/Bardie.Contracts/README.md) · [Bardie.Module.Auth](../../../libs/Bardie.Module.Auth/README.md)
 
