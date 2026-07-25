@@ -1,4 +1,4 @@
-using Bardie.Module.Channel.Hosting;
+using Bardie.Logos.Channel.Hosting;
 using Kithara.Features.Library;
 using Kithara.Features.Streams;
 using Kithara.Infrastructure.Storage;
@@ -76,9 +76,9 @@ public static class HealthEndpointExtensions
 
 public sealed class ModuleTlsHealthCheck : IHealthCheck
 {
-    private readonly Bardie.Module.Channel.Certificates.IModuleCertificateStore _store;
+    private readonly Bardie.Logos.Channel.Certificates.IModuleCertificateStore _store;
 
-    public ModuleTlsHealthCheck(Bardie.Module.Channel.Certificates.IModuleCertificateStore store)
+    public ModuleTlsHealthCheck(Bardie.Logos.Channel.Certificates.IModuleCertificateStore store)
     {
         _store = store;
     }

@@ -1,7 +1,7 @@
 using Bardie.Harness.Auth;
 using Bardie.Harness.Auth.Catalog;
 using Bardie.Harness.Auth.Ports;
-using Bardie.Module.Channel;
+using Bardie.Logos.Channel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -26,7 +26,7 @@ public class AuthHarnessScaffoldTests
         using var provider = services.BuildServiceProvider();
         Assert.NotNull(provider.GetRequiredService<IAuthModuleCatalog>());
         Assert.NotNull(provider.GetRequiredService<AuthModuleHarness>());
-        Assert.NotNull(provider.GetRequiredService<Bardie.Module.Channel.Certificates.IModuleCertificateStore>());
+        Assert.NotNull(provider.GetRequiredService<Bardie.Logos.Channel.Certificates.IModuleCertificateStore>());
     }
 
     private sealed class FakeAuthPersistence : IAuthPersistence

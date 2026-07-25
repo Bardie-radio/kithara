@@ -1,6 +1,6 @@
 using Bardie.Harness.Auth.Catalog;
-using Bardie.Module.Channel;
-using Bardie.Module.Channel.Certificates;
+using Bardie.Logos.Channel;
+using Bardie.Logos.Channel.Certificates;
 using Bardie.Modules.V1;
 using Bardie.Harness.Source.Catalog;
 using Grpc.Core;

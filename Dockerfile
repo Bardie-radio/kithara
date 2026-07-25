@@ -1,4 +1,5 @@
-# Build from the parent folder that contains `kithara/`:
+# Build from the parent folder that contains `kithara/`, `logos/`, `kithara-logos-auth/`,
+# and `kithara-logos-source/` (multi-root / Local Compose sibling layout):
 #
 #   docker build -f kithara/Dockerfile -t kithara .
 #   docker build -f kithara/Dockerfile --target test .
@@ -10,6 +11,18 @@
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
+
+COPY logos/Directory.Build.props logos/Directory.Packages.props logos/
+COPY logos/src/Bardie.Logos.Contracts logos/src/Bardie.Logos.Contracts/
+COPY logos/src/Bardie.Logos.Channel logos/src/Bardie.Logos.Channel/
+COPY logos/src/Bardie.Logos.Hosting logos/src/Bardie.Logos.Hosting/
+
+COPY kithara-logos-auth/Directory.Build.props kithara-logos-auth/Directory.Packages.props kithara-logos-auth/
+COPY kithara-logos-auth/src/Bardie.Module.Auth kithara-logos-auth/src/Bardie.Module.Auth/
+
+COPY kithara-logos-source/Directory.Build.props kithara-logos-source/Directory.Packages.props kithara-logos-source/
+COPY kithara-logos-source/src/Bardie.Module.Source kithara-logos-source/src/Bardie.Module.Source/
+COPY kithara-logos-source/src/Bardie.Module.Source.Debug kithara-logos-source/src/Bardie.Module.Source.Debug/
 
 COPY kithara/Directory.Build.props kithara/Directory.Packages.props kithara/
 COPY kithara/Kithara.sln kithara/
@@ -29,6 +42,12 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 ENV BARDIE_FFMPEG_ROOT=/usr/lib/x86_64-linux-gnu
+COPY logos/Directory.Build.props logos/Directory.Packages.props logos/
+COPY logos/src logos/src/
+COPY kithara-logos-auth/Directory.Build.props kithara-logos-auth/Directory.Packages.props kithara-logos-auth/
+COPY kithara-logos-auth/src kithara-logos-auth/src/
+COPY kithara-logos-source/Directory.Build.props kithara-logos-source/Directory.Packages.props kithara-logos-source/
+COPY kithara-logos-source/src kithara-logos-source/src/
 COPY kithara/Directory.Build.props kithara/Directory.Packages.props kithara/
 COPY kithara/Kithara.sln kithara/
 COPY kithara/libs kithara/libs/

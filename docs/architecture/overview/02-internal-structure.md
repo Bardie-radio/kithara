@@ -54,7 +54,7 @@ How **Kithara** is structured inside one process. Ecosystem layout (Plume, modul
 
 ## Solution layout
 
-Root buckets: `src/` (host + DummyRegistrar), `libs/` (packable Contracts + Module.* + Harness.*), `tests/`, `docs/`. Prefer **feature-first** folders and Minimal APIs ([aspnet team rules](../../../.cursor/rules/aspnet.mdc) in repo):
+Root buckets: `src/` (host + DummyRegistrar), `libs/` (host-only Harness.*), `tests/`, `docs/`. Packable mesh substrate lives in sibling Lib repos (see [glossary](../glossary.md) — **Logos**, **kithara-logos-auth**, **kithara-logos-source**). Prefer **feature-first** folders and Minimal APIs ([aspnet team rules](../../../.cursor/rules/aspnet.mdc) in repo):
 
 ```text
 src/Kithara/
@@ -70,15 +70,13 @@ src/Kithara/
     Observability/# OTel registration (service.name=bardie.kithara)
     Neck/         # hosted FFmpeg supervisor + session FIFO + silence
     Storage/      # blob drivers (local MVP) — backing store for source harness storage API
-libs/
-  Bardie.Contracts/           # packable protos (ModuleRegistry, AuthAdapter, …)
-  Bardie.Module.Channel/      # mTLS + manifest + participant/host dial helpers
-  Bardie.Module.Hosting/      # ASP.NET participant bootstrap + Bardie Compose env aliases
-  Bardie.Module.Auth/         # JWT mint / JWKS Register helpers for auth adapters
-  Bardie.Module.Source/       # SourceModule base, FIFO sink, job registry, host dial clients
-  Bardie.Module.Source.Debug/ # opt-in sine FIFO/protocol smoke (Debug / test refs only)
+libs/                         # host-only (stay in Kithara)
   Bardie.Harness.Auth/
   Bardie.Harness.Source/
+# Sibling Lib repos (ProjectReference while developing):
+#   logos/                  Bardie.Logos.{Contracts,Channel,Hosting}
+#   kithara-logos-auth/     Bardie.Module.Auth
+#   kithara-logos-source/   Bardie.Module.Source(+.Debug)
 ```
 
 FFmpeg child processes **outlive HTTP requests** — own them with a hosted background supervisor, not a request-scoped service alone.

@@ -1,6 +1,6 @@
 using Bardie.Harness.Auth;
 using Bardie.Harness.Auth.Catalog;
-using Bardie.Module.Channel;
+using Bardie.Logos.Channel;
 using Kithara.Features.Auth;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;

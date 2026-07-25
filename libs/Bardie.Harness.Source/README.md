@@ -4,7 +4,7 @@ Source module **harness** library for Bardie hosts (Kithara today; external host
 
 **Package id:** `Bardie.Harness.Source` · **Version:** `0.1.0` · **TFM:** `net10.0`
 
-Depends on [`Bardie.Contracts`](../Bardie.Contracts/README.md) + [`Bardie.Module.Channel`](../Bardie.Module.Channel/README.md) + [`Bardie.Module.Source`](../Bardie.Module.Source/README.md) (shared capability vocabulary).
+Depends on [`Bardie.Logos.Contracts`](https://github.com/Bardie-radio/logos/tree/main/src/Bardie.Logos.Contracts) + [`Bardie.Logos.Channel`](https://github.com/Bardie-radio/logos/tree/main/src/Bardie.Logos.Channel) + [`Bardie.Module.Source`](https://github.com/Bardie-radio/kithara-logos-source) (shared capability vocabulary).
 
 ## What it owns
 

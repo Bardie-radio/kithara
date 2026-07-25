@@ -13,13 +13,13 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kithara", "src\Kithara\Kith
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kithara.DummyRegistrar", "src\Kithara.DummyRegistrar\Kithara.DummyRegistrar.csproj", "{B1000002-0000-4000-8000-000000000002}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Contracts", "libs\Bardie.Contracts\Bardie.Contracts.csproj", "{B100000A-0000-4000-8000-00000000000A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Logos.Contracts", "..\logos\src\Bardie.Logos.Contracts\Bardie.Logos.Contracts.csproj", "{B100000A-0000-4000-8000-00000000000A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Module.Channel", "libs\Bardie.Module.Channel\Bardie.Module.Channel.csproj", "{B1000003-0000-4000-8000-000000000003}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Logos.Channel", "..\logos\src\Bardie.Logos.Channel\Bardie.Logos.Channel.csproj", "{B1000003-0000-4000-8000-000000000003}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Module.Hosting", "libs\Bardie.Module.Hosting\Bardie.Module.Hosting.csproj", "{B100000B-0000-4000-8000-00000000000B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Logos.Hosting", "..\logos\src\Bardie.Logos.Hosting\Bardie.Logos.Hosting.csproj", "{B100000B-0000-4000-8000-00000000000B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Module.Auth", "libs\Bardie.Module.Auth\Bardie.Module.Auth.csproj", "{B100000C-0000-4000-8000-00000000000C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Module.Auth", "..\kithara-logos-auth\src\Bardie.Module.Auth\Bardie.Module.Auth.csproj", "{B100000C-0000-4000-8000-00000000000C}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Harness.Auth", "libs\Bardie.Harness.Auth\Bardie.Harness.Auth.csproj", "{B1000004-0000-4000-8000-000000000004}"
 EndProject
@@ -37,11 +37,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Harness.Source.Tests
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kithara.Tests", "tests\Kithara.Tests\Kithara.Tests.csproj", "{B1000009-0000-4000-8000-000000000009}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Module.Source", "libs\Bardie.Module.Source\Bardie.Module.Source.csproj", "{473F4468-C974-4B98-93EA-DB4FCCCC51AB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Module.Source", "..\kithara-logos-source\src\Bardie.Module.Source\Bardie.Module.Source.csproj", "{473F4468-C974-4B98-93EA-DB4FCCCC51AB}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Module.Source.Tests", "tests\Bardie.Module.Source.Tests\Bardie.Module.Source.Tests.csproj", "{6386AE7C-32F2-45EA-8B59-4D207DBF2FF5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Module.Source.Debug", "libs\Bardie.Module.Source.Debug\Bardie.Module.Source.Debug.csproj", "{CB23B2AA-C249-4952-8C32-1362B8360D83}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Module.Source.Debug", "..\kithara-logos-source\src\Bardie.Module.Source.Debug\Bardie.Module.Source.Debug.csproj", "{CB23B2AA-C249-4952-8C32-1362B8360D83}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bardie.Module.Source.Debug.Tests", "tests\Bardie.Module.Source.Debug.Tests\Bardie.Module.Source.Debug.Tests.csproj", "{39C9135F-A443-4B4E-B487-0DEB60F40BDB}"
 EndProject

@@ -1,8 +1,8 @@
 using System.Threading.RateLimiting;
 using Bardie.Harness.Auth;
-using Bardie.Module.Channel;
-using Bardie.Module.Channel.Certificates;
-using Bardie.Module.Channel.Hosting;
+using Bardie.Logos.Channel;
+using Bardie.Logos.Channel.Certificates;
+using Bardie.Logos.Channel.Hosting;
 using Bardie.Harness.Source;
 using Kithara.Features.Auth;
 using Kithara.Features.Library;

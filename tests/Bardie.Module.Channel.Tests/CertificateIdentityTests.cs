@@ -1,9 +1,9 @@
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using Bardie.Module.Channel.Certificates;
+using Bardie.Logos.Channel.Certificates;
 using Xunit;
 
-namespace Bardie.Module.Channel.Tests;
+namespace Bardie.Logos.Channel.Tests;
 
 public class CertificateIdentityTests
 {

@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Bardie.Module.Channel.Manifest;
+using Bardie.Logos.Channel.Manifest;
 using Microsoft.Extensions.Options;
 using Xunit;
 
