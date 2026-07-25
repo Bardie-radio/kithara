@@ -74,7 +74,7 @@ Next shipping focus: **Phase 7 (Plume)** and **Phase 8 (Compose + verify)**.
 | Layout  | Feature folders + packable Module.* / Harness.* / Contracts          | Plume (7); Compose E2E (8)            |
 | Models  | ADR 006 EF entities + migrations + grant CRUD                        | —                                     |
 | Auth    | Orch + Bes + JWT + guest refresh + AUTH/GUEST-* (soft residuals → 8) | Host rotate gate / lockout polish (8) |
-| Audio   | Encode-alive: silence + FFmpeg + Magpie PCM + ICY `/stream`          | Continuity polish / NECK-JOB-001 (8)  |
+| Audio   | Encode-alive: silence + FFmpeg + Magpie PCM + ICY `/stream`          | — (NECK-JOB/SWP/PCM Fixed in 8)       |
 | Control | Full DJ REST + pause-as-silence + TrackStatus now-playing            | —                                     |
 | Modules | Registry + mTLS host↔slug pin; Bes + Magpie live                     | Plume (7)                             |
 
@@ -114,13 +114,13 @@ Phase 7 needs Phase 2 + enough of 5–6 (now available). Phase 8 needs MVP apps 
 | MESH-CHN-001   | Security P1   | Channel host↔slug mTLS pin                                                            | **4**                                                                   |
 | AUTH-ORCH-001  | Design/debt   | Auth harness: `provider_id`→module from discovery (still pass `provider_id` on wire)  | **6**                                                                   |
 | NECK-JOB-002   | Design/debt   | Wire `TrackStatus` / recover jobs; Neck in-memory map                                 | **4**                                                                   |
-| META-QA-001    | QA            | Host integration tests; Magpie/Bes module-local tests                                 | **8** (+ land tests with 4–6 PRs)                                       |
+| META-QA-001    | QA            | Host integration tests; Magpie/Bes module-local tests                                 | **8** — **Fixed**                                                       |
+| META-OTEL-001  | Ops           | Local Compose omits `OTEL_EXPORTER_OTLP_ENDPOINT`                                     | **8** — **Fixed** ([kithara#34](https://github.com/Bardie-radio/kithara/issues/34)) |
+| META-OTEL-002  | Ops           | `Task.Run` drops Activity (Magpie track + Neck encode)                                | **8** — **Fixed** ([kithara#36](https://github.com/Bardie-radio/kithara/issues/36)) |
+| META-OTEL-003  | Ops           | Span attrs / Magpie stages / listen tags lag ADR 008                                  | **8** — **Fixed** (traces; OTLP logs deferred) ([kithara#35](https://github.com/Bardie-radio/kithara/issues/35)) |
 | META-OPS-001   | Ops           | Phase3 sine smoke vs Magpie Release image                                             | **8**                                                                   |
 | META-OPS-002   | Ops           | Alpine final images + bare-minimum FFmpeg libs (Kithara/Magpie); Alpine for Plume/Bes | **8** ([kithara#33](https://github.com/Bardie-radio/kithara/issues/33)) |
 | META-DOC-001   | Docs          | Doc vs code drift (Tune path, Bes ops, Magpie scope, phase status)                    | **8**                                                                   |
-| META-OTEL-001  | Ops           | Local Compose omits `OTEL_EXPORTER_OTLP_ENDPOINT`                                     | **8** ([kithara#34](https://github.com/Bardie-radio/kithara/issues/34)) |
-| META-OTEL-002  | Ops           | `Task.Run` drops Activity (Magpie track + Neck encode)                                | **8** ([kithara#36](https://github.com/Bardie-radio/kithara/issues/36)) |
-| META-OTEL-003  | Ops           | Span attrs / Magpie stages / listen tags lag ADR 008                                  | **8** ([kithara#35](https://github.com/Bardie-radio/kithara/issues/35)) |
 | MESH-REG-*     | Mesh residual | Join-secret takeover / auto key-on-wire / ephemeral CA                                | Ops + backlog ([security-audit](security-audit.md))                     |
 
 
@@ -134,7 +134,7 @@ You do not hand-wrap every method. Typical pattern:
 2. **Auto-instrumentation** for ASP.NET Core HTTP, gRPC, HttpClient, EF Core — middleware/handlers create spans for inbound/outbound calls and propagate W3C `traceparent`.
 3. **Custom Activity / spans** only where auto-instrumentation is blind: Neck lifecycle, silence feeder, FFmpeg process, session FIFO attach, track-job state machines.
 4. **Attributes** from [observability](../operations/observability.md): `struna.id`, `struna.slug`, `source.module`, … — never tokens/passwords.
-5. If `OTEL_EXPORTER_OTLP_ENDPOINT` is unset, export no-ops — Local sketches currently omit it ([META-OTEL-001](known-issues.md#meta-otel-001--local-compose-omits-otel_exporter_otlp_endpoint)). Background `Task.Run` still orphans Magpie/Neck work even after export ([META-OTEL-002](known-issues.md#meta-otel-002--taskrun-drops-activity-context-magpie--neck)).
+5. If `OTEL_EXPORTER_OTLP_ENDPOINT` is unset, export no-ops. Local sketches stay quiet until you opt in with `compose.otel*.yml` + an explicit endpoint ([META-OTEL-001](known-issues.md#meta-otel-001--local-compose-omits-otel_exporter_otlp_endpoint) **Fixed**). Magpie/Neck background work uses ActivityLink ([META-OTEL-002](known-issues.md#meta-otel-002--taskrun-drops-activity-context-magpie--neck) **Fixed**).
 
 Same contract on Bes/Magpie/Plume from their first runnable container ([ADR 008](../adrs/008-otel-observability.md)).
 
@@ -325,7 +325,7 @@ libs/
 
 ## Phase 4 — Neck (alive Struna + FFmpeg)
 
-**Status: complete.** Encode-alive create, silence feeder, in-process MP3 supervisor, `TrackStatus` → now-playing / queue advance, pause-as-silence, `PrefetchTrack` on enqueue, FIFO realtime pacing, Channel peer pin (MESH-CHN-001). Soft continuity residuals → Phase 8 ([security-audit](security-audit.md) NECK-JOB-001).
+**Status: complete.** Encode-alive create, silence feeder, in-process MP3 supervisor, `TrackStatus` → now-playing / queue advance, pause-as-silence, `PrefetchTrack` on enqueue, FIFO realtime pacing, Channel peer pin (MESH-CHN-001). Continuity residuals closed in Phase 8 ([security-audit](security-audit.md) NECK-JOB-001 Fixed; [known-issues](known-issues.md) NECK-SWP-001 / NECK-PCM-001 Fixed).
 
 **Why:** Broadcast sync and ICY continuity require long-lived encoder + silence ([ADR 001](../adrs/001-broadcast-sync-model.md), [ADR 004](../adrs/004-source-instance-socket-audio-plane.md)). Host→module dials intensify here — Channel peer pinning closed with this phase.
 
@@ -496,12 +496,13 @@ Do **not** renumber Plume work as “Kithara 7.1 / 7.2”. Satisfies this phase 
 
 1. Reference Compose: edge + `plume` + `kithara` + `magpie` + `bes` ([org deployment](https://github.com/Bardie-radio/.github/blob/main/profile/docs/architecture/05-deployment.md)).
 2. `BARDIE_JOIN_SECRETS` for all modules; audio/storage volumes as decided.
-3. Point every app at the **external** OTel collector (`OTEL_EXPORTER_OTLP_ENDPOINT`); confirm `service.name` values per [observability](../operations/observability.md). See [META-OTEL-001](known-issues.md#meta-otel-001--local-compose-omits-otel_exporter_otlp_endpoint) / [kithara#34](https://github.com/Bardie-radio/kithara/issues/34).
-4. Smoke script / checklist: register → login → create → play → listen → skip — **and** a single play trace spanning Plume → Kithara → Magpie. Requires [META-OTEL-002](known-issues.md#meta-otel-002--taskrun-drops-activity-context-magpie--neck) (Activity across `Task.Run`) before the continuous tree can hold; attrs/stages under [META-OTEL-003](known-issues.md#meta-otel-003--span-attrs--stage-coverage-lag-adr-008).
-5. **META-QA-001:** Host integration tests (discovery→`/me`, create→play→FIFO readable, guest exchange, **AUTH-INVITE** bootstrap: empty DB invite → claim → bind). Prefer landing tests alongside Phase 4–6 PRs; Phase 8 is the freeze that they must pass. Magpie/Bes module-local unit tests. **auth-invite-bindonly / AUTH-CLAIM-001:** claim allow-list + post-bind access death — **closed** (unit + Plume BFF invite tests).
+3. Point every app at the **external** OTel collector when you have one (`OTEL_EXPORTER_OTLP_ENDPOINT` + matching Local `compose.otel*.yml` overlay). Unset = no export. [META-OTEL-001](known-issues.md#meta-otel-001--local-compose-omits-otel_exporter_otlp_endpoint) / [kithara#34](https://github.com/Bardie-radio/kithara/issues/34).
+4. Smoke script / checklist: register → login → create → play → listen → skip — **and** a single play trace spanning Plume → Kithara → Magpie. Activity across `Task.Run` (**META-OTEL-002 Fixed**); attrs/stages (**META-OTEL-003 Fixed**, traces only).
+5. **META-QA-001 Fixed:** Host `WebApplicationFactory` (discovery→`/me`, invite claim→bind, guest exchange, MustRotate gate) + Bes Authenticate/`UpdateUserBinding` + Magpie registry/FIFO pacing/cancel. create→play→FIFO still needs FFmpeg + source module in Compose smoke.
 6. **META-OPS-001:** Align Local phase3 sine smoke with Magpie image config (Debug sine helper vs Release YouTube default) so the documented smoke path is honest.
 7. **META-OPS-002:** Shrink finals — Alpine base for the MVP quartet; Kithara/Magpie ship bare-minimum FFmpeg.AutoGen shared libs (not apt/apk `ffmpeg` metapackages). See [known-issues](known-issues.md#meta-ops-002--final-images-bloated-ubuntu--full-ffmpeg) / [kithara#33](https://github.com/Bardie-radio/kithara/issues/33).
 8. **META-DOC-001:** Sweep doc drift (library Tune path, Bes operations JWT wording, Magpie Register wording, MVP phase status vs code).
+9. **NECK-JOB-001 / NECK-SWP-001 / NECK-PCM-001 Fixed:** TrackStatus reconnect + capped give-up; no orphan sweep on play; shared `CanonicalPcm` ([kithara#26](https://github.com/Bardie-radio/kithara/issues/26), [kithara#25](https://github.com/Bardie-radio/kithara/issues/25)).
 
 
 

@@ -1,20 +1,21 @@
 using System.Diagnostics;
+using Bardie.Module.Source;
 
 namespace Kithara.Infrastructure.Neck;
 
 /// <summary>
-/// Writes zero PCM (s16le / 48 kHz / stereo) into a Struna FIFO when no module is feeding,
+/// Writes zero PCM (<see cref="CanonicalPcm"/>) into a Struna FIFO when no module is feeding,
 /// so FFmpeg never starves across silence gaps / pause / between tracks.
 /// Keeps the write end open for the encoder life even while disabled (avoids FIFO EOF).
 /// </summary>
 public sealed class SilenceFeeder : IAsyncDisposable
 {
-    public const int SampleRate = 48_000;
-    public const int Channels = 2;
-    public const int BytesPerFrame = sizeof(short) * Channels;
+    public const int SampleRate = CanonicalPcm.SampleRate;
+    public const int Channels = CanonicalPcm.Channels;
+    public const int BytesPerFrame = CanonicalPcm.BytesPerFrame;
 
     /// <summary>~20 ms of silence per write.</summary>
-    private const int FramesPerChunk = SampleRate / 50;
+    private const int FramesPerChunk = CanonicalPcm.SampleRate / 50;
 
     private readonly string _fifoPath;
     private readonly Guid _strunaId;
@@ -33,7 +34,9 @@ public sealed class SilenceFeeder : IAsyncDisposable
         _strunaId = strunaId;
         _slug = slug;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _loop = RunAsync(_cts.Token);
+        // META-OTEL-002: link to create/start request; do not nest under the short HTTP span.
+        var linkContext = NeckActivity.CaptureLinkContext();
+        _loop = RunAsync(linkContext, _cts.Token);
     }
 
     public bool IsEnabled
@@ -99,9 +102,9 @@ public sealed class SilenceFeeder : IAsyncDisposable
         _cts.Dispose();
     }
 
-    private async Task RunAsync(CancellationToken cancellationToken)
+    private async Task RunAsync(ActivityContext linkContext, CancellationToken cancellationToken)
     {
-        using var activity = NeckActivity.Source.StartActivity("neck.silence.attach");
+        using var activity = NeckActivity.StartLinked("neck.silence.attach", linkContext);
         activity?.SetTag("struna.id", _strunaId.ToString("D"));
         activity?.SetTag("struna.slug", _slug);
 
@@ -120,8 +123,8 @@ public sealed class SilenceFeeder : IAsyncDisposable
             _fifoPath,
             _strunaId);
 
-        var zeros = new byte[FramesPerChunk * BytesPerFrame];
-        var pace = TimeSpan.FromMilliseconds(1000.0 * FramesPerChunk / SampleRate);
+        var zeros = new byte[FramesPerChunk * CanonicalPcm.BytesPerFrame];
+        var pace = TimeSpan.FromMilliseconds(1000.0 * FramesPerChunk / CanonicalPcm.SampleRate);
 
         while (!cancellationToken.IsCancellationRequested)
         {

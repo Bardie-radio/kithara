@@ -28,7 +28,7 @@ service SourceModule {
 
 `PrefetchTrack` is likewise capability-gated (`prefetch`). Modules without cache warmup omit it; the host skips dialing when the capability is absent. Magpie advertises `prefetch`.
 
-`StopTracksForStruna` cancels every in-flight job for a Struna (orphan cleanup when the host forgot job ids). `StartTrack` on Magpie also cancels sibling jobs for the same Struna before registering a new one.
+`StopTracksForStruna` cancels every in-flight job for a Struna. Host uses it for **recovery** only (Struna delete, pause/skip when Neck has no tracked job id) — not on the happy play path. `StartTrack` cancels sibling jobs for the same Struna before registering a new one, so replace/play does not need a host sweep.
 
 ## Capabilities (Registry)
 
@@ -113,7 +113,7 @@ Invariants (frozen for v0.1):
 
 ## Audio requirements
 
-- Write **canonical PCM** (MVP: s16le / 48 kHz / stereo) to the session endpoint Kithara created
+- Write **canonical PCM** (`CanonicalPcm` in `Bardie.Module.Source`: s16le / 48 kHz / stereo) to the session endpoint Kithara created
 - Do not own the listen side; Neck/FFmpeg reads it for the Struna life
 - Endpoint lives on the **shared Compose volume**; path is passed in `StartTrack` — see [ADR 004](../adrs/004-source-instance-socket-audio-plane.md)
 - **`PrefetchTrack`**: warm blob cache on enqueue (no FIFO write); `StartTrack` still owns session PCM

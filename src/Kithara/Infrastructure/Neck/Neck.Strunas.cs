@@ -89,6 +89,8 @@ public sealed partial class Neck
         using var activity = NeckActivity.Source.StartActivity("neck.struna.create");
         activity?.SetTag("struna.id", struna.Id.ToString("D"));
         activity?.SetTag("struna.slug", struna.Slug);
+        activity?.SetTag("playback.access", struna.PlaybackAccess.ToString().ToLowerInvariant());
+        activity?.SetTag("control.access", struna.ControlAccess.ToString().ToLowerInvariant());
 
         var fifo = await EnsureStrunaFifoAsync(struna.Id, cancellationToken).ConfigureAwait(false);
         try

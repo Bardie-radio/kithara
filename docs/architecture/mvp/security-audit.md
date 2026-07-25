@@ -91,16 +91,16 @@ Historical aliases (`SEC-*`, `NEW-*`, `DES-*`, `KI-*`, `QA-*`, `DOC-*`, `OPS-*`)
 | **AUTH-BIND-001** | P1 | Register subject collision / overwrite via `EnsureUserWithBinding` | **Fixed** — explicit-user path never steals subjects; register rolls back |
 | **AUTH-DISP-001** | P2 | No host `User.Username`; login id is Bes `external_subject` / seed `"admin"` | **Fixed** — immutable unique `User.Username`; `/me` + `must_complete_binding` |
 | **AUTH-CLAIM-001** | P1 | Claim JWT `bardie_bind_only` unread; admin claim could `/register` + search; access survived bind | **Fixed** — allow-list bindings+`/me`; no roles on claim JWT; register rejects pending; claim access dies after `CompleteInvite` |
-| **NECK-JOB-001** | P2 | TrackStatus disconnect without terminal event can orphan Neck jobs | Phase 8 / Neck polish — drives [NECK-SWP-001](known-issues.md#neck-swp-001--orphan-writer-sweep-runs-on-every-play-including-new-strunas) / [kithara#26](https://github.com/Bardie-radio/kithara/issues/26) |
+| **NECK-JOB-001** | P2 | TrackStatus disconnect without terminal event can orphan Neck jobs | **Fixed** — reconnect + capped give-up finalize; enables [NECK-SWP-001](known-issues.md#neck-swp-001--orphan-writer-sweep-runs-on-every-play-including-new-strunas) Fixed |
 | **GUEST-XCHG-002** | P2 | Guest failure lockout (5 failures → 15 min) | **Fixed** (Phase 8) |
 | **STREAM-TOK-001** | P2 | Listen-token compare not constant-time | **Fixed** — `CryptographicOperations.FixedTimeEquals` |
 | **AUTH-JWKS-002** | P2 | JWKS snapshot cold window at boot | **Fixed** — Register awaits JWKS; fail-closed rejects Register |
-| **META-QA-001** | P1 | No host E2E; Bes/Magpie have no module-local tests | Phase 8 ([kithara#22](https://github.com/Bardie-radio/kithara/issues/22), bes#6, magpie#2) |
+| **META-QA-001** | P1 | Host E2E + Bes/Magpie module tests | **Fixed** — host invite claim→bind + guest/rotate; Bes/Magpie unit tests ([kithara#22](https://github.com/Bardie-radio/kithara/issues/22), bes#6, magpie#2) |
 | **META-DOC-001** | P3 | Plan/module docs lag code (incl. `/player` autoplay wording) | Phase 8 ([kithara#23](https://github.com/Bardie-radio/kithara/issues/23), [plume#12](https://github.com/Bardie-radio/plume/issues/12), bes#7, magpie#3) |
 | **META-OPS-002** | P2 | Final images: Ubuntu aspnet + full apt `ffmpeg`; Alpine + bare-minimum libav | Phase 8 ([kithara#33](https://github.com/Bardie-radio/kithara/issues/33), [magpie#6](https://github.com/Bardie-radio/magpie/issues/6), [plume#13](https://github.com/Bardie-radio/plume/issues/13), [bes#10](https://github.com/Bardie-radio/bes/issues/10)) — [known-issues](known-issues.md#meta-ops-002--final-images-bloated-ubuntu--full-ffmpeg) |
-| **META-OTEL-001** | P1 | Local Compose omits `OTEL_EXPORTER_OTLP_ENDPOINT` | Phase 8 ([kithara#34](https://github.com/Bardie-radio/kithara/issues/34)) — [known-issues](known-issues.md#meta-otel-001--local-compose-omits-otel_exporter_otlp_endpoint) |
-| **META-OTEL-002** | P1 | `Task.Run` drops Activity (Magpie track + Neck encode) | Phase 8 ([kithara#36](https://github.com/Bardie-radio/kithara/issues/36)) — [known-issues](known-issues.md#meta-otel-002--taskrun-drops-activity-context-magpie--neck) |
-| **META-OTEL-003** | P2 | Span attrs / Magpie stages / listen tags lag ADR 008 | Phase 8 ([kithara#35](https://github.com/Bardie-radio/kithara/issues/35)) — [known-issues](known-issues.md#meta-otel-003--span-attrs--stage-coverage-lag-adr-008) |
+| **META-OTEL-001** | P1 | Local Compose omits `OTEL_EXPORTER_OTLP_ENDPOINT` | **Fixed** ([kithara#34](https://github.com/Bardie-radio/kithara/issues/34)) — [known-issues](known-issues.md#meta-otel-001--local-compose-omits-otel_exporter_otlp_endpoint) |
+| **META-OTEL-002** | P1 | `Task.Run` drops Activity (Magpie track + Neck encode) | **Fixed** ([kithara#36](https://github.com/Bardie-radio/kithara/issues/36)) — [known-issues](known-issues.md#meta-otel-002--taskrun-drops-activity-context-magpie--neck) |
+| **META-OTEL-003** | P2 | Span attrs / Magpie stages / listen tags lag ADR 008 | **Fixed** (traces; OTLP logs deferred) ([kithara#35](https://github.com/Bardie-radio/kithara/issues/35)) — [known-issues](known-issues.md#meta-otel-003--span-attrs--stage-coverage-lag-adr-008) |
 
 ### Full-stack review (Plume + docs) — Jul 2026
 
@@ -201,6 +201,18 @@ Login id previously lived only as Bes `external_subject` (seed string `"admin"`)
 Claim JWTs minted `bardie_bind_only=true` and roles from the invite (including `admin`), but the host never read the flag. A bootstrap claim principal could `POST /api/auth/register` (admin role only), hit `/api/search`, and keep a valid access token until TTL after `CompleteInvite` (refresh already stopped).
 
 **Remediation (shipped):** `BindOnlyGate` allow-lists claim / pending-bind principals to **`GET /api/auth/me`** and **`POST /api/auth/bindings/{provider}`** only (403 `must_complete_binding` elsewhere). `/register` rejects claim/pending before the admin role check. Claim JWTs carry **no role claims** — invite roles stay on the user row and apply only at bind. `AuthPrincipal` resolves claim access only while `MustCompleteBinding` remains true — access dies after bind like refresh. Plume clears the claim session on BFF bind and treats claim sessions as registration-only in the chrome.
+
+---
+
+## NECK-JOB-001 — TrackStatus disconnect orphans Neck jobs
+
+**Severity:** P2  
+**Component:** Neck `WatchTrackStatusAsync` / `_jobs` map  
+**Fix:** **Fixed** (Phase 8) — drives [NECK-SWP-001](known-issues.md#neck-swp-001--orphan-writer-sweep-runs-on-every-play-including-new-strunas) / [kithara#26](https://github.com/Bardie-radio/kithara/issues/26)
+
+When the `TrackStatus` gRPC stream closed without `Ended`/`Error`, the watcher exited while `_jobs` still held the `track_job_id`. Neck kept a dead bookkeeping entry (no status updates; next play relied on `StopTracksForStruna` sweeps).
+
+**Remediation (shipped):** Treat clean disconnect the same as watcher exceptions — resubscribe with a short delay while the job remains current. Cap reconnects; after the limit, `FinalizeEndedTrackAsync` clears Neck bookkeeping (best-effort `StopTrack` + queue advance) so orphans stay exceptional and play no longer needs a hot-path orphan sweep.
 
 ---
 

@@ -1,11 +1,13 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Bardie.Module.Source;
 using FFmpeg.AutoGen;
 
 namespace Kithara.Infrastructure.Neck;
 
 /// <summary>
 /// In-process PCM → MP3 encoder via FFmpeg.AutoGen (libmp3lame / AV_CODEC_ID_MP3).
-/// Reads s16le / 48 kHz / stereo from the Struna FIFO and publishes raw MP3 frames.
+/// Reads <see cref="CanonicalPcm"/> from the Struna FIFO and publishes raw MP3 frames.
 /// Native load matches Magpie's <c>FfmpegPcmTranscoder</c> (set <c>ffmpeg.RootPath</c>, no CLI).
 /// </summary>
 public sealed class FfmpegMp3PcmEncoder : IAsyncDisposable
@@ -39,7 +41,9 @@ public sealed class FfmpegMp3PcmEncoder : IAsyncDisposable
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         EnsureNativeLoaded(ffmpegRootPath, logger);
-        _loop = Task.Run(() => RunUnsafe(slug, _cts.Token), CancellationToken.None);
+        // META-OTEL-002: capture before Task.Run — Activity.Current dies when the create/start span ends.
+        var linkContext = NeckActivity.CaptureLinkContext();
+        _loop = Task.Run(() => RunUnsafe(slug, linkContext, _cts.Token), CancellationToken.None);
     }
 
     private static void EnsureNativeLoaded(string? configuredRoot, ILogger logger)
@@ -137,7 +141,7 @@ public sealed class FfmpegMp3PcmEncoder : IAsyncDisposable
         _cts.Dispose();
     }
 
-    private void RunUnsafe(string slug, CancellationToken cancellationToken)
+    private void RunUnsafe(string slug, ActivityContext linkContext, CancellationToken cancellationToken)
     {
         const int maxRestarts = 8;
         for (var attempt = 1; attempt <= maxRestarts && !cancellationToken.IsCancellationRequested; attempt++)
@@ -146,7 +150,7 @@ public sealed class FfmpegMp3PcmEncoder : IAsyncDisposable
             {
                 unsafe
                 {
-                    Run(slug, cancellationToken);
+                    Run(slug, linkContext, cancellationToken);
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -178,9 +182,9 @@ public sealed class FfmpegMp3PcmEncoder : IAsyncDisposable
         }
     }
 
-    private unsafe void Run(string slug, CancellationToken cancellationToken)
+    private unsafe void Run(string slug, ActivityContext linkContext, CancellationToken cancellationToken)
     {
-        using var activity = NeckActivity.Source.StartActivity("neck.encoder.run");
+        using var activity = NeckActivity.StartLinked("neck.encoder.run", linkContext);
         activity?.SetTag("struna.id", _strunaId.ToString("D"));
         activity?.SetTag("struna.slug", slug);
 
@@ -204,10 +208,10 @@ public sealed class FfmpegMp3PcmEncoder : IAsyncDisposable
             }
 
             codecCtx->bit_rate = _bitrateKbps * 1000L;
-            codecCtx->sample_rate = SilenceFeeder.SampleRate;
+            codecCtx->sample_rate = CanonicalPcm.SampleRate;
             codecCtx->sample_fmt = PickSampleFormat(codec);
-            ffmpeg.av_channel_layout_default(&codecCtx->ch_layout, SilenceFeeder.Channels);
-            codecCtx->time_base = new AVRational { num = 1, den = SilenceFeeder.SampleRate };
+            ffmpeg.av_channel_layout_default(&codecCtx->ch_layout, CanonicalPcm.Channels);
+            codecCtx->time_base = new AVRational { num = 1, den = CanonicalPcm.SampleRate };
 
             var open = ffmpeg.avcodec_open2(codecCtx, codec, null);
             if (open < 0)
@@ -240,7 +244,7 @@ public sealed class FfmpegMp3PcmEncoder : IAsyncDisposable
                 FileMode.Open,
                 FileAccess.Read,
                 FileShare.ReadWrite,
-                bufferSize: frameSamples * SilenceFeeder.BytesPerFrame,
+                bufferSize: frameSamples * CanonicalPcm.BytesPerFrame,
                 FileOptions.SequentialScan);
 
             _logger.LogInformation(
@@ -249,7 +253,7 @@ public sealed class FfmpegMp3PcmEncoder : IAsyncDisposable
                 _strunaId,
                 _bitrateKbps);
 
-            var interleaved = new byte[frameSamples * SilenceFeeder.BytesPerFrame];
+            var interleaved = new byte[frameSamples * CanonicalPcm.BytesPerFrame];
             long pts = 0;
 
             while (!cancellationToken.IsCancellationRequested)
@@ -416,7 +420,7 @@ public sealed class FfmpegMp3PcmEncoder : IAsyncDisposable
                 if (format == AVSampleFormat.AV_SAMPLE_FMT_FLT)
                 {
                     var dst = (float*)frame->data[0];
-                    for (var i = 0; i < frameSamples * SilenceFeeder.Channels; i++)
+                    for (var i = 0; i < frameSamples * CanonicalPcm.Channels; i++)
                     {
                         dst[i] = samples[i] / 32768f;
                     }

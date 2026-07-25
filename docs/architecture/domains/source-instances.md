@@ -48,7 +48,7 @@ Track jobs stay **isolated per Struna** — same track on two Strunas means two 
 
 ## Canonical PCM
 
-MVP default internal format: **s16le / 48 kHz / stereo**. Listener encode (MP3/ICY) is separate — see encode modes on Struna create.
+MVP default internal format: **s16le / 48 kHz / stereo**, defined once as `CanonicalPcm` in `Bardie.Module.Source` (FIFO pacing, Neck silence/encode, Magpie transcoder, debug sine). Listener encode (MP3/ICY) is separate — see encode modes on Struna create.
 
 ## gRPC surface
 

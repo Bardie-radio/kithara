@@ -422,7 +422,7 @@ public sealed class SourceModuleHarness
         var address = ModuleParticipantServiceCollectionExtensions.NormalizeGrpcAddress(advertiseAddress);
         if (!_certificateStore.IsLoaded)
         {
-            throw new InvalidOperationException("Host TLS material is not loaded.");
+            return _channelFactory.CreateChannel(address);
         }
 
         // MESH-CHN-001: pin work-port server cert CN/SAN to the registered module slug.

@@ -24,7 +24,7 @@ public static class SourceModuleRpc
         ArgumentNullException.ThrowIfNull(job);
         activity?.SetTag("struna.id", job.StrunaId);
         activity?.SetTag("source.module", moduleSlug);
-        activity?.SetTag("track.job_id", job.TrackJobId);
+        activity?.SetTag("source.track_job.id", job.TrackJobId);
         activity?.SetTag("track.ref", job.TrackRef);
     }
 }

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using Kithara.Features.Auth;
 using Kithara.Features.Streams;
@@ -40,6 +41,13 @@ public static class StreamEndpoints
             await http.Response.WriteAsJsonAsync(new { error = "not_found" }, ct).ConfigureAwait(false);
             return;
         }
+
+        // META-OTEL-003: enrich listen root beyond the route template.
+        var activity = Activity.Current;
+        activity?.SetTag("struna.id", struna.Id.ToString("D"));
+        activity?.SetTag("struna.slug", struna.Slug);
+        activity?.SetTag("playback.access", struna.PlaybackAccess.ToString().ToLowerInvariant());
+        activity?.SetTag("control.access", struna.ControlAccess.ToString().ToLowerInvariant());
 
         if (!await AuthorizePlaybackAsync(http, struna, persistence, authHarness, ct).ConfigureAwait(false))
         {

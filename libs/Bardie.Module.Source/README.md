@@ -18,6 +18,7 @@ builder.Services.AddSourceModuleDefaults(builder.Configuration);
 |------|------|
 | `SourceModuleBase` | `Health`; pause/prefetch gates via `WellKnownSourceCapabilities`; default Stop / Pause / Resume / TrackStatus via registry |
 | `WellKnownSourceCapabilities` | Shared `search` / `play` / `pause` / `prefetch` strings (modules + Source Harness) |
+| `CanonicalPcm` | Locked session PCM profile (`s16le` / 48 kHz / stereo) for FIFO writers + Neck |
 | `ModuleManifestSourceBag` | Parse opaque `source.searchFields` from the manifest |
 | `SourceSearchFieldsRegisterRequestCustomizer` | Attach `Source.search_fields` on Register (manifest → options → `title`) |
 | `ITrackJobRegistry` / `TrackJobRegistry` | Job lifecycle, parallel limit, Stop / Pause / Resume |

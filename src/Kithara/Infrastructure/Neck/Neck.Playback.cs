@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Bardie.Source.V1;
 using Microsoft.EntityFrameworkCore;
 
@@ -45,24 +46,9 @@ public sealed partial class Neck
             return await UnpauseCoreAsync(strunaId, cancellationToken).ConfigureAwait(false);
         }
 
-        var previousModule = _jobs.TryGetValue(strunaId, out var previous) ? previous.ModuleSlug : null;
-        var hadTrackedJob = previous is not null;
+        // Happy path: StopCurrentTrack + Magpie StartTrack sibling cancel. No StopTracksForStruna
+        // on play (NECK-SWP-001) — Magpie Create already cancels same-Struna jobs.
         await StopCurrentTrackAsync(strunaId, cancellationToken).ConfigureAwait(false);
-
-        // Only sweep orphans when Neck had no bookkeeping — Magpie Create already cancels siblings.
-        // Calling StopTracksForStruna immediately before StartTrack races the new job on Magpie.
-        // See NECK-SWP-001 / kithara#26 — symptom treatment on the hot path.
-        if (!hadTrackedJob)
-        {
-            await StopOrphanWritersAsync(strunaId, moduleSlug.Trim(), cancellationToken)
-                .ConfigureAwait(false);
-        }
-        else if (!string.IsNullOrWhiteSpace(previousModule)
-                 && !string.Equals(previousModule, moduleSlug.Trim(), StringComparison.OrdinalIgnoreCase))
-        {
-            await StopOrphanWritersAsync(strunaId, previousModule, cancellationToken)
-                .ConfigureAwait(false);
-        }
 
         // Keep encoder; silence fills the gap until TrackStatus Running (module writing PCM).
         // After host restart the DB row exists but the encode session may not — restore first.
@@ -159,9 +145,15 @@ public sealed partial class Neck
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var moduleHint = _jobs.TryGetValue(strunaId, out var job) ? job.ModuleSlug : null;
+            // Sweep only when Neck has no job id (proven desync) — not after a normal StopTrack.
+            var hadTrackedJob = _jobs.ContainsKey(strunaId);
             await StopCurrentTrackAsync(strunaId, cancellationToken).ConfigureAwait(false);
-            await StopOrphanWritersAsync(strunaId, moduleHint, cancellationToken).ConfigureAwait(false);
+            if (!hadTrackedJob)
+            {
+                await StopOrphanWritersAsync(strunaId, preferredModule: null, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             _encoder.SetSilence(strunaId, true);
 
             var outcome = await AdvanceQueueHeadCoreAsync(strunaId, cancellationToken).ConfigureAwait(false);
@@ -241,7 +233,9 @@ public sealed partial class Neck
         StopStatusWatcher(strunaId);
         var cts = new CancellationTokenSource();
         _statusWatchers[strunaId] = cts;
-        _ = Task.Run(() => WatchTrackStatusAsync(strunaId, job, cts.Token), CancellationToken.None);
+        // META-OTEL-002: capture play-request context before fire-and-forget watcher.
+        var linkContext = NeckActivity.CaptureLinkContext();
+        _ = Task.Run(() => WatchTrackStatusAsync(strunaId, job, linkContext, cts.Token), CancellationToken.None);
     }
 
     private void StopStatusWatcher(Guid strunaId)
@@ -264,10 +258,17 @@ public sealed partial class Neck
     private async Task WatchTrackStatusAsync(
         Guid strunaId,
         ActiveTrackJob job,
+        ActivityContext linkContext,
         CancellationToken cancellationToken)
     {
+        using var activity = NeckActivity.StartLinked("neck.track_status", linkContext);
+        activity?.SetTag("struna.id", strunaId.ToString("D"));
+        activity?.SetTag("source.track_job.id", job.TrackJobId);
+        activity?.SetTag("source.module", job.ModuleSlug);
+
         CancellationTokenSource? ownedCts = null;
         var sawRunning = false;
+        var sawTerminal = false;
         var resubscribe = false;
         try
         {
@@ -298,6 +299,7 @@ public sealed partial class Neck
                     continue;
                 }
 
+                sawTerminal = true;
                 if (evt.State == TrackState.Error)
                 {
                     _logger.LogWarning(
@@ -310,6 +312,21 @@ public sealed partial class Neck
                 ownedCts = await FinalizeEndedTrackAsync(strunaId, job, cancellationToken)
                     .ConfigureAwait(false);
                 break;
+            }
+
+            // Stream closed without Ended/Error while Neck still tracks the job — reconnect
+            // (NECK-JOB-001). Leaving the map entry with a dead watcher orphans the job.
+            if (!sawTerminal
+                && !resubscribe
+                && !cancellationToken.IsCancellationRequested
+                && IsCurrentJob(strunaId, job.TrackJobId))
+            {
+                _logger.LogWarning(
+                    "TrackStatus stream ended without terminal event for Struna {Id} job {JobId} (attempt {Attempt})",
+                    strunaId,
+                    job.TrackJobId,
+                    job.StatusAttempts);
+                resubscribe = true;
             }
         }
         catch (OperationCanceledException)
@@ -333,9 +350,36 @@ public sealed partial class Neck
             ownedCts?.Dispose();
         }
 
-        if (resubscribe
-            && !cancellationToken.IsCancellationRequested
-            && IsCurrentJob(strunaId, job.TrackJobId))
+        if (!resubscribe
+            || cancellationToken.IsCancellationRequested
+            || !IsCurrentJob(strunaId, job.TrackJobId))
+        {
+            return;
+        }
+
+        if (job.StatusAttempts >= MaxStatusResubscribeAttempts)
+        {
+            _logger.LogWarning(
+                "Giving up TrackStatus reconnect for Struna {Id} job {JobId} after {Attempts} attempts; clearing Neck bookkeeping",
+                strunaId,
+                job.TrackJobId,
+                job.StatusAttempts);
+            var abandonedCts = await FinalizeEndedTrackAsync(strunaId, job, CancellationToken.None)
+                .ConfigureAwait(false);
+            abandonedCts?.Dispose();
+            return;
+        }
+
+        try
+        {
+            await Task.Delay(StatusResubscribeDelay, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (IsCurrentJob(strunaId, job.TrackJobId) && !cancellationToken.IsCancellationRequested)
         {
             StartStatusWatcher(strunaId, job with { StatusAttempts = job.StatusAttempts + 1 });
         }
@@ -476,7 +520,9 @@ public sealed partial class Neck
     }
 
     /// <summary>
-    /// Best-effort cancel of module writers for this Struna (orphans when Neck lost the job id).
+    /// Best-effort cancel of module writers for this Struna when Neck lost the job id
+    /// (delete / pause desync / skip with no tracked job). Not used on the happy play path
+    /// (NECK-SWP-001 — Magpie <c>Create</c> cancels siblings).
     /// When <paramref name="preferredModule"/> is null, dials every playable source.
     /// </summary>
     private async Task StopOrphanWritersAsync(

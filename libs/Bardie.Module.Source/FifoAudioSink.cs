@@ -9,7 +9,7 @@ public interface IFifoAudioSink
     /// Opens <paramref name="audioEndpoint"/> for write and copies <paramref name="pcm"/> until EOF or cancel.
     /// Blocks until a reader attaches on a real FIFO (Unix <c>mkfifo</c>).
     /// When <paramref name="isPaused"/> returns true, writing pauses until it returns false.
-    /// Writes are paced to s16le / 48 kHz / stereo realtime.
+    /// Writes are paced to <see cref="CanonicalPcm"/> realtime.
     /// </summary>
     Task WriteAsync(
         string audioEndpoint,
@@ -21,9 +21,6 @@ public interface IFifoAudioSink
 public sealed class FifoAudioSink : IFifoAudioSink
 {
     private const int BufferSize = 16 * 1024;
-    private const int SampleRate = 48_000;
-    private const int Channels = 2;
-    private const int BytesPerSecond = SampleRate * Channels * sizeof(short);
     private static readonly TimeSpan PausePoll = TimeSpan.FromMilliseconds(50);
     private static readonly TimeSpan PaceSlack = TimeSpan.FromMilliseconds(30);
 
@@ -70,8 +67,8 @@ public sealed class FifoAudioSink : IFifoAudioSink
             await fifo.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
             bytesWritten += read;
 
-            // Pace to s16le / 48 kHz / stereo so Magpie Ended ≈ audible end (not "dump then drain").
-            var expected = TimeSpan.FromSeconds(bytesWritten / (double)BytesPerSecond);
+            // Pace to CanonicalPcm so Magpie Ended ≈ audible end (not "dump then drain").
+            var expected = TimeSpan.FromSeconds(bytesWritten / (double)CanonicalPcm.BytesPerSecond);
             var ahead = expected - clock.Elapsed - PaceSlack;
             if (ahead > TimeSpan.Zero)
             {

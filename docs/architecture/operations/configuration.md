@@ -8,7 +8,7 @@ Env and Compose knobs for the **Kithara container** — database, collectors, mo
 |----------|-------------|
 | `DbProvider` | `sqlite` (throwaway local only) or `postgres` (Compose / real deploys) |
 | `DbConnectionString` | EF connection string |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | External collector URL (e.g. Alloy) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Optional. External collector URL (e.g. Alloy). Unset → no OTLP export. Local: opt-in overlays `compose.otel*.yml` — never defaulted in base sketches |
 | `BARDIE_JOIN_SECRETS` | Map of module slug → secret (source, auth, and client modules — register + static admin). Treat as root credentials for mesh bootstrap — [security-audit](../mvp/security-audit.md) |
 | `BARDIE_MODULE_MTLS_BOOTSTRAP` | `auto` (default, private mesh) \| `preshared` (no private keys on Register) |
 | `BARDIE_GRPC_TLS_DATA_PATH` | Host CA + gRPC server cert directory (persist on a volume in real deploys) |

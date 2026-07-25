@@ -10,6 +10,16 @@ namespace Bardie.Module.Source.Tests;
 public class SourceModuleLibTests
 {
     [Fact]
+    public void CanonicalPcm_mvp_profile_is_s16le_48k_stereo()
+    {
+        Assert.Equal(48_000, CanonicalPcm.SampleRate);
+        Assert.Equal(2, CanonicalPcm.Channels);
+        Assert.Equal(sizeof(short), CanonicalPcm.BytesPerSample);
+        Assert.Equal(CanonicalPcm.BytesPerSample * CanonicalPcm.Channels, CanonicalPcm.BytesPerFrame);
+        Assert.Equal(CanonicalPcm.SampleRate * CanonicalPcm.BytesPerFrame, CanonicalPcm.BytesPerSecond);
+    }
+
+    [Fact]
     public async Task Health_returns_ok()
     {
         var adapter = new StubSource(new ModuleManifest { Slug = "magpie", Kind = "source" });

@@ -55,12 +55,12 @@ public sealed class SinePcmOptions
 }
 
 /// <summary>
-/// Canonical PCM (s16le / 48 kHz / stereo) sine for StartTrack → FIFO protocol checks.
+/// Canonical PCM sine for StartTrack → FIFO protocol checks (see <see cref="CanonicalPcm"/>).
 /// </summary>
 public sealed class SinePcmGenerator
 {
-    public const int SampleRate = 48_000;
-    public const int Channels = 2;
+    public const int SampleRate = CanonicalPcm.SampleRate;
+    public const int Channels = CanonicalPcm.Channels;
 
     private readonly SinePcmOptions _options;
 
@@ -73,10 +73,10 @@ public sealed class SinePcmGenerator
     {
         var frequency = _options.FrequencyHz <= 0 ? 440 : _options.FrequencyHz;
         var duration = _options.DurationSeconds <= 0 ? 30 : _options.DurationSeconds;
-        var totalSamples = (int)(SampleRate * duration);
-        var memory = new MemoryStream(totalSamples * Channels * sizeof(short));
+        var totalSamples = (int)(CanonicalPcm.SampleRate * duration);
+        var memory = new MemoryStream(totalSamples * CanonicalPcm.BytesPerFrame);
         var phase = 0.0;
-        var phaseIncrement = 2.0 * Math.PI * frequency / SampleRate;
+        var phaseIncrement = 2.0 * Math.PI * frequency / CanonicalPcm.SampleRate;
 
         for (var i = 0; i < totalSamples; i++)
         {

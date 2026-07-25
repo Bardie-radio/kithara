@@ -23,6 +23,14 @@ public sealed partial class Neck
     private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _strunaGates = new();
     private readonly ILogger<Neck> _logger;
 
+    /// <summary>
+    /// Caps TrackStatus reconnects after disconnect / premature Ended without a terminal event
+    /// (NECK-JOB-001). Beyond this, Neck clears the job so the next play does not need an orphan sweep.
+    /// </summary>
+    private const int MaxStatusResubscribeAttempts = 8;
+
+    private static readonly TimeSpan StatusResubscribeDelay = TimeSpan.FromMilliseconds(250);
+
     public Neck(
         IOptions<NeckOptions> options,
         IDbContextFactory<KitharaDbContext> dbFactory,

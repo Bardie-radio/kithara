@@ -7,6 +7,27 @@ namespace Kithara.Infrastructure.Neck;
 public static class NeckActivity
 {
     public static ActivitySource Source { get; } = new("bardie.kithara.neck");
+
+    /// <summary>
+    /// META-OTEL-002: long-lived Neck work (encode / silence / TrackStatus) must not nest under a
+    /// short HTTP/gRPC span. Capture the caller context before <c>Task.Run</c>, then start a linked root.
+    /// </summary>
+    public static Activity? StartLinked(
+        string name,
+        ActivityContext linkContext,
+        ActivityKind kind = ActivityKind.Internal)
+    {
+        IEnumerable<ActivityLink>? links = null;
+        if (linkContext != default)
+        {
+            links = [new ActivityLink(linkContext)];
+        }
+
+        return Source.StartActivity(name, kind, parentContext: default, tags: null, links: links);
+    }
+
+    public static ActivityContext CaptureLinkContext() =>
+        Activity.Current?.Context ?? default;
 }
 
 /// <summary>

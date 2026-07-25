@@ -62,9 +62,9 @@ Wire paths stay English (`/api/streams`); product language is **Struna**.
 | GET | `/api/streams/by-slug/{slug}` | **Unauthenticated.** Metadata when playback is **public** or **hidden**; else `404` |
 | GET | `/api/streams/by-slug/{slug}/now-playing` | **Unauthenticated.** Same open-playback gate as above |
 | POST | `/api/streams` | Create **encode-alive**: slug unique among alive Strunas, session FIFO, silence + FFmpeg, guest code; listen token when playback is protected |
-| GET | `/api/streams/{id}` | Get by internal GUID (listen **or** control ACL) |
+| GET | `/api/streams/{id}` | Get by internal GUID (listen **or** control ACL). **Owner** also receives `guest_code` / `listen_token` when set |
 | POST | `/api/streams/{id}/pause` | Pause: silence feeder on + optional module `PauseTrack` (idempotent) |
-| DELETE | `/api/streams/{id}` | Tear down: stop track, stop silence, kill FFmpeg, close FIFO, free slug, destroy guests + clear their **search cache** |
+| DELETE | `/api/streams/{id}` | **Owner only.** Tear down: stop track, stop silence, kill FFmpeg, close FIFO, free slug, destroy guests + clear their **search cache** |
 | POST | `/api/streams/{id}/skip` | Stop current track job → next queue entry (encoder stays up) |
 | GET | `/api/streams/{id}/now-playing` | Current track / Neck snapshot (same source as ICY `StreamTitle`) |
 

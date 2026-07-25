@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Security.Claims;
 using System.Text.Json.Serialization;
 using Bardie.Auth.V1;
@@ -83,6 +84,7 @@ public static class AuthEndpoints
 
         var payload = body.Payload ?? new Dictionary<string, string>();
         var result = await orch.AuthenticateAsync(body.ProviderId, payload, ct).ConfigureAwait(false);
+        Activity.Current?.SetTag("auth.provider.id", body.ProviderId);
         if (!result.Allowed)
         {
             return Results.Json(
