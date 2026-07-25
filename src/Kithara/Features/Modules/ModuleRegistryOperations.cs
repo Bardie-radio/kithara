@@ -50,7 +50,10 @@ public sealed class ModuleRegistryOperations
     /// <param name="presentedCertSlug">
     /// Slug derived from an inbound mTLS client cert, if any (optional on Register).
     /// </param>
-    public RegisterResponse Register(RegisterRequest request, string? presentedCertSlug = null)
+    public async Task<RegisterResponse> RegisterAsync(
+        RegisterRequest request,
+        string? presentedCertSlug = null,
+        CancellationToken cancellationToken = default)
     {
         var slug = request.Slug?.Trim().ToLowerInvariant() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(slug))
@@ -158,7 +161,23 @@ public sealed class ModuleRegistryOperations
             PermissionCeiling = permissionCeiling,
         });
 
-        ProjectToHarnessCatalogs(request, slug, kind, capabilities, now, expiresAt);
+        try
+        {
+            await ProjectToHarnessCatalogsAsync(
+                    request,
+                    slug,
+                    kind,
+                    capabilities,
+                    now,
+                    expiresAt,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch
+        {
+            _registry.Remove(slug);
+            throw;
+        }
 
         _logger.LogInformation(
             "Module {Slug} ({Kind}) registered; bootstrap={Bootstrap}; well_known={WellKnown}",
@@ -169,6 +188,10 @@ public sealed class ModuleRegistryOperations
 
         return response;
     }
+
+    /// <summary>Sync wrapper for Phase 1 tests — prefer <see cref="RegisterAsync"/>.</summary>
+    public RegisterResponse Register(RegisterRequest request, string? presentedCertSlug = null) =>
+        RegisterAsync(request, presentedCertSlug).GetAwaiter().GetResult();
 
     public HeartbeatResponse Heartbeat(HeartbeatRequest request, string? presentedCertSlug)
     {
@@ -223,13 +246,14 @@ public sealed class ModuleRegistryOperations
         }
     }
 
-    private void ProjectToHarnessCatalogs(
+    private async Task ProjectToHarnessCatalogsAsync(
         RegisterRequest request,
         string slug,
         string kind,
         IReadOnlyList<string> capabilities,
         DateTimeOffset now,
-        DateTimeOffset expiresAt)
+        DateTimeOffset expiresAt,
+        CancellationToken cancellationToken)
     {
         switch (kind)
         {
@@ -245,9 +269,9 @@ public sealed class ModuleRegistryOperations
                     LastHeartbeatAt = now,
                     ExpiresAt = expiresAt,
                 });
-                // AUTH-JWKS-001: do not wait up to the hosted-service interval — Bes tokens
-                // validate only after this snapshot includes the module JWKS.
-                _ = RefreshJwksAfterAuthRegisterAsync(slug);
+                // AUTH-JWKS-002: eagerly await first JWKS snapshot before module-signed Bearer
+                // can be accepted for this slug (fail closed — reject Register if keys missing).
+                await RefreshJwksAfterAuthRegisterAsync(slug, cancellationToken).ConfigureAwait(false);
                 break;
 
             case WellKnownModuleKinds.Source:
@@ -284,16 +308,20 @@ public sealed class ModuleRegistryOperations
         }
     }
 
-    private async Task RefreshJwksAfterAuthRegisterAsync(string slug)
+    private async Task RefreshJwksAfterAuthRegisterAsync(string slug, CancellationToken cancellationToken)
     {
         try
         {
-            await _jwksKeys.RefreshSnapshotAsync(CancellationToken.None).ConfigureAwait(false);
+            await _jwksKeys.RequireSigningKeysForModuleAsync(slug, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation("JWKS snapshot refreshed after auth module {Slug} register", slug);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning(ex, "JWKS snapshot refresh failed after auth module {Slug} register", slug);
+            _authCatalog.Remove(slug);
+            _logger.LogError(ex, "JWKS snapshot refresh failed after auth module {Slug} register — rejecting", slug);
+            throw new RpcException(new Status(
+                StatusCode.FailedPrecondition,
+                $"Auth module '{slug}' JWKS is unavailable; registration rejected."));
         }
     }
 }

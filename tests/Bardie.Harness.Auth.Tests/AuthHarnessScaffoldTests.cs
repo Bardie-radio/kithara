@@ -34,7 +34,40 @@ public class AuthHarnessScaffoldTests
         public Task<bool> HasAnyUsersAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(false);
 
+        public Task<bool> HasAnyAuthBindingsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(false);
+
+        public Task<bool> HasAnyDurableUsersAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(false);
+
         public Task<int> CountUsersAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(0);
+
+        public Task<Guid> CreateDurableUserAsync(
+            bool mustRotateCredentials,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Guid.NewGuid());
+
+        public Task<Guid> CreateInvitedUserAsync(
+            CreateInvitedUserRequest request,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Guid.NewGuid());
+
+        public Task<AuthUserRecord?> FindUserByUsernameAsync(
+            string username,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<AuthUserRecord?>(null);
+
+        public Task<bool> UsernameExistsAsync(string username, CancellationToken cancellationToken = default) =>
+            Task.FromResult(false);
+
+        public Task CompleteInviteAsync(Guid userId, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task DeleteUserAsync(Guid userId, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task<int> DeleteUnboundDurableUsersAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(0);
 
         public Task<AuthBindingRecord?> FindBindingBySubjectAsync(
@@ -43,10 +76,16 @@ public class AuthHarnessScaffoldTests
             CancellationToken cancellationToken = default) =>
             Task.FromResult<AuthBindingRecord?>(null);
 
+        public Task<AuthBindingRecord?> FindBindingByUserAsync(
+            Guid userId,
+            string providerSlug,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<AuthBindingRecord?>(null);
+
         public Task<Guid> EnsureUserWithBindingAsync(
             EnsureUserBindingRequest request,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(Guid.NewGuid());
+            Task.FromResult(request.UserId ?? Guid.NewGuid());
 
         public Task<AuthUserRecord?> FindUserByBindingSubjectAsync(
             string providerSlug,
@@ -58,5 +97,11 @@ public class AuthHarnessScaffoldTests
             Guid userId,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<AuthUserRecord?>(null);
+
+        public Task SetMustRotateAsync(
+            Guid userId,
+            bool mustRotateCredentials,
+            CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
     }
 }

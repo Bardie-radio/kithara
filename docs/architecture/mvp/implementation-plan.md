@@ -11,15 +11,15 @@ This page is the **how and in what order**. Milestones stay the short delivery l
 Kithara must not care **which** auth, source, or UI module is connected — only that each speaks the **unified contract for its type**. Modules must not depend on each other’s implementation details.
 
 
-| Rule                                  | Means in practice                                                                                                                                      |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **One contract per module type**      | Source → `SourceModule` gRPC; Auth → `AuthModule` gRPC; Client → `ClientModule` gRPC + REST `/api` for UX; **all** kinds join via Module Registry gRPC |
-| **Opaque payloads at the edge**       | Clients never call Bes/Magpie; Kithara routes bags and verifies tokens                                                                                 |
-| **Identity by slug + join secret**    | Module swap = Compose + secret map, not Kithara code changes                                                                                           |
-| **Harnesses as libraries**        | Auth module harness + source module harness are **library-shaped** (host ports for persistence / storage / Bardie extras). Kithara is one host; outside reuse is planned — [org 07](https://github.com/Bardie-radio/.github/blob/main/profile/docs/architecture/07-modules-beyond-bardie.md) |
-| **Spike code is not the model**       | Follow docs/ADRs over `Neck.cs` / prototype `Tune`/`Playlist` shapes                                                                                   |
-| **Freeze the socket before the guts** | Lock proto/REST sketches enough to implement both sides, then fill behaviour                                                                           |
-| **OTel from day one**                 | Wire OpenTelemetry in `Program.cs` / module entrypoints in **Phase 1** — not a Phase 8 afterthought. Auto-instrument HTTP/gRPC/EF; custom spans only where middleware is blind (Neck, FIFO, FFmpeg). |
+| Rule                                  | Means in practice                                                                                                                                                                                                                                                                            |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **One contract per module type**      | Source → `SourceModule` gRPC; Auth → `AuthModule` gRPC; Client → `ClientModule` gRPC + REST `/api` for UX; **all** kinds join via Module Registry gRPC                                                                                                                                       |
+| **Opaque payloads at the edge**       | Clients never call Bes/Magpie; Kithara routes bags and verifies tokens                                                                                                                                                                                                                       |
+| **Identity by slug + join secret**    | Module swap = Compose + secret map, not Kithara code changes                                                                                                                                                                                                                                 |
+| **Harnesses as libraries**            | Auth module harness + source module harness are **library-shaped** (host ports for persistence / storage / Bardie extras). Kithara is one host; outside reuse is planned — [org 07](https://github.com/Bardie-radio/.github/blob/main/profile/docs/architecture/07-modules-beyond-bardie.md) |
+| **Spike code is not the model**       | Follow docs/ADRs over `Neck.cs` / prototype `Tune`/`Playlist` shapes                                                                                                                                                                                                                         |
+| **Freeze the socket before the guts** | Lock proto/REST sketches enough to implement both sides, then fill behaviour                                                                                                                                                                                                                 |
+| **OTel from day one**                 | Wire OpenTelemetry in `Program.cs` / module entrypoints in **Phase 1** — not a Phase 8 afterthought. Auto-instrument HTTP/gRPC/EF; custom spans only where middleware is blind (Neck, FIFO, FFmpeg).                                                                                         |
 
 
 If a feature requires Magpie to know Bes exists (or Plume to know Magpie’s ytdl quirks), the design is wrong — put the knowledge in Kithara’s harnesses or in the shared contract.
@@ -69,51 +69,62 @@ flowchart TB
 Next shipping focus: **Phase 7 (Plume)** and **Phase 8 (Compose + verify)**.
 
 
-| Area    | Today                                                          | Later                                            |
-| ------- | -------------------------------------------------------------- | ------------------------------------------------ |
-| Layout  | Feature folders + packable Module.* / Harness.* / Contracts | Plume (7); Compose E2E (8)                       |
-| Models  | ADR 006 EF entities + migrations + grant CRUD                  | —                                                |
-| Auth    | Orch + Bes + JWT + guest refresh + AUTH/GUEST-* (soft residuals → 8)  | Host rotate gate / lockout polish (8)            |
-| Audio   | Encode-alive: silence + FFmpeg + Magpie PCM + ICY `/stream`    | Continuity polish / NECK-JOB-001 (8)             |
-| Control | Full DJ REST + pause-as-silence + TrackStatus now-playing      | —                                                |
-| Modules | Registry + mTLS host↔slug pin; Bes + Magpie live               | Plume (7)                                        |
+| Area    | Today                                                                | Later                                 |
+| ------- | -------------------------------------------------------------------- | ------------------------------------- |
+| Layout  | Feature folders + packable Module.* / Harness.* / Contracts          | Plume (7); Compose E2E (8)            |
+| Models  | ADR 006 EF entities + migrations + grant CRUD                        | —                                     |
+| Auth    | Orch + Bes + JWT + guest refresh + AUTH/GUEST-* (soft residuals → 8) | Host rotate gate / lockout polish (8) |
+| Audio   | Encode-alive: silence + FFmpeg + Magpie PCM + ICY `/stream`          | Continuity polish / NECK-JOB-001 (8)  |
+| Control | Full DJ REST + pause-as-silence + TrackStatus now-playing            | —                                     |
+| Modules | Registry + mTLS host↔slug pin; Bes + Magpie live                     | Plume (7)                             |
+
+
+
 
 ## Phase map
 
 Phases are **dependency-ordered** for *shipping* outcomes. Phases 4–6 ran in parallel after Phase 3 and are now closed; integrate and verify at Phase 8.
 
 
-| Phase | Name             | Outcome                                                               | Status |
-| ----- | ---------------- | --------------------------------------------------------------------- | ------ |
-| **1** | Kithara skeleton | Feature layout, DB, Module Registry, join secrets, **OTel bootstrap** | Complete |
-| **2** | Auth vertical | Harness + Bes + JWT verify + bootstrap user path | Complete |
-| **3** | Source vertical | Source protocol + Magpie proof (`Search` / `StartTrack` / FIFO write) | Complete |
-| **4** | Neck + encode | Alive Struna, silence feeder, FFmpeg supervisor + **Channel peer pin (MESH-CHN-001)** | Complete |
-| **5** | Stream Server | `GET /stream/{slug}` ICY + listen-token gate | Complete |
-| **6** | Control REST + auth hardening | Remaining control depth + **security P0/P1** + harness routing (AUTH-ORCH-001) | Complete |
-| **7** | Plume MVP | Umbrella: reference UI exists (Plume Phases 1–6) | **Next** |
-| **8** | Compose + verify | Reference stack, join secrets, OTLP E2E, **QA/OPS/DOC debt** | After 7 (or parallel) |
+| Phase | Name                          | Outcome                                                                               | Status                |
+| ----- | ----------------------------- | ------------------------------------------------------------------------------------- | --------------------- |
+| **1** | Kithara skeleton              | Feature layout, DB, Module Registry, join secrets, **OTel bootstrap**                 | Complete              |
+| **2** | Auth vertical                 | Harness + Bes + JWT verify + bootstrap user path                                      | Complete              |
+| **3** | Source vertical               | Source protocol + Magpie proof (`Search` / `StartTrack` / FIFO write)                 | Complete              |
+| **4** | Neck + encode                 | Alive Struna, silence feeder, FFmpeg supervisor + **Channel peer pin (MESH-CHN-001)** | Complete              |
+| **5** | Stream Server                 | `GET /stream/{slug}` ICY + listen-token gate                                          | Complete              |
+| **6** | Control REST + auth hardening | Remaining control depth + **security P0/P1** + harness routing (AUTH-ORCH-001)        | Complete              |
+| **7** | Plume MVP                     | Umbrella: reference UI exists (Plume Phases 1–6)                                      | **Next**              |
+| **8** | Compose + verify              | Reference stack, join secrets, OTLP E2E, **QA/OPS/DOC debt**                          | After 7 (or parallel) |
 
 
 Phase 7 needs Phase 2 + enough of 5–6 (now available). Phase 8 needs MVP apps green enough to compose — OTel export itself is already live from Phase 1 / each module’s first boot.
 
 ### Phases 1–3 review → phase ownership
 
-| ID | Kind | Summary | Phase |
-|----|------|---------|-------|
-| GUEST-REF-001 | Security P0 | Guest refresh path missing | **6** |
-| LIB-TUNE-001 | Security P0 | `EnsureTune` storage_key ownership | **6** |
-| AUTH-ROT-001 | Security P0 | `must_rotate_credentials` never enforced | **6** |
-| AUTH-ROLE-001 | Security P0 | Every Bes mint → `roles=[admin]` | **6** |
-| AUTH-JWKS-001 | Security P1 | JWKS sync-over-async | **6** |
-| GUEST-XCHG-001 | Security P1 | Guest exchange rate-limit | **6** |
-| MESH-CHN-001 | Security P1 | Channel host↔slug mTLS pin | **4** |
-| AUTH-ORCH-001 | Design/debt | Auth harness: `provider_id`→module from discovery (still pass `provider_id` on wire) | **6** |
-| NECK-JOB-002 | Design/debt | Wire `TrackStatus` / recover jobs; Neck in-memory map | **4** |
-| META-QA-001 | QA | Host integration tests; Magpie/Bes module-local tests | **8** (+ land tests with 4–6 PRs) |
-| META-OPS-001 | Ops | Phase3 sine smoke vs Magpie Release image | **8** |
-| META-DOC-001 | Docs | Doc vs code drift (Tune path, Bes ops, Magpie scope, phase status) | **8** |
-| MESH-REG-* | Mesh residual | Join-secret takeover / auto key-on-wire / ephemeral CA | Ops + backlog ([security-audit](security-audit.md)) |
+
+| ID             | Kind          | Summary                                                                               | Phase                                                                   |
+| -------------- | ------------- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| GUEST-REF-001  | Security P0   | Guest refresh path missing                                                            | **6**                                                                   |
+| LIB-TUNE-001   | Security P0   | `EnsureTune` storage_key ownership                                                    | **6**                                                                   |
+| AUTH-ROT-001   | Security P0   | `must_rotate_credentials` never enforced                                              | **6**                                                                   |
+| AUTH-ROLE-001  | Security P0   | Every Bes mint → `roles=[admin]`                                                      | **6**                                                                   |
+| AUTH-JWKS-001  | Security P1   | JWKS sync-over-async                                                                  | **6**                                                                   |
+| GUEST-XCHG-001 | Security P1   | Guest exchange rate-limit                                                             | **6**                                                                   |
+| MESH-CHN-001   | Security P1   | Channel host↔slug mTLS pin                                                            | **4**                                                                   |
+| AUTH-ORCH-001  | Design/debt   | Auth harness: `provider_id`→module from discovery (still pass `provider_id` on wire)  | **6**                                                                   |
+| NECK-JOB-002   | Design/debt   | Wire `TrackStatus` / recover jobs; Neck in-memory map                                 | **4**                                                                   |
+| META-QA-001    | QA            | Host integration tests; Magpie/Bes module-local tests                                 | **8** (+ land tests with 4–6 PRs)                                       |
+| META-OPS-001   | Ops           | Phase3 sine smoke vs Magpie Release image                                             | **8**                                                                   |
+| META-OPS-002   | Ops           | Alpine final images + bare-minimum FFmpeg libs (Kithara/Magpie); Alpine for Plume/Bes | **8** ([kithara#33](https://github.com/Bardie-radio/kithara/issues/33)) |
+| META-DOC-001   | Docs          | Doc vs code drift (Tune path, Bes ops, Magpie scope, phase status)                    | **8**                                                                   |
+| META-OTEL-001  | Ops           | Local Compose omits `OTEL_EXPORTER_OTLP_ENDPOINT`                                     | **8** ([kithara#34](https://github.com/Bardie-radio/kithara/issues/34)) |
+| META-OTEL-002  | Ops           | `Task.Run` drops Activity (Magpie track + Neck encode)                                | **8** ([kithara#36](https://github.com/Bardie-radio/kithara/issues/36)) |
+| META-OTEL-003  | Ops           | Span attrs / Magpie stages / listen tags lag ADR 008                                  | **8** ([kithara#35](https://github.com/Bardie-radio/kithara/issues/35)) |
+| MESH-REG-*     | Mesh residual | Join-secret takeover / auto key-on-wire / ephemeral CA                                | Ops + backlog ([security-audit](security-audit.md))                     |
+
+
+
 
 ### OTel in practice (ASP.NET / modules)
 
@@ -123,7 +134,7 @@ You do not hand-wrap every method. Typical pattern:
 2. **Auto-instrumentation** for ASP.NET Core HTTP, gRPC, HttpClient, EF Core — middleware/handlers create spans for inbound/outbound calls and propagate W3C `traceparent`.
 3. **Custom Activity / spans** only where auto-instrumentation is blind: Neck lifecycle, silence feeder, FFmpeg process, session FIFO attach, track-job state machines.
 4. **Attributes** from [observability](../operations/observability.md): `struna.id`, `struna.slug`, `source.module`, … — never tokens/passwords.
-5. If `OTEL_EXPORTER_OTLP_ENDPOINT` is unset, export can no-op or log locally; when the collector is present, traces already flow.
+5. If `OTEL_EXPORTER_OTLP_ENDPOINT` is unset, export no-ops — Local sketches currently omit it ([META-OTEL-001](known-issues.md#meta-otel-001--local-compose-omits-otel_exporter_otlp_endpoint)). Background `Task.Run` still orphans Magpie/Neck work even after export ([META-OTEL-002](known-issues.md#meta-otel-002--taskrun-drops-activity-context-magpie--neck)).
 
 Same contract on Bes/Magpie/Plume from their first runnable container ([ADR 008](../adrs/008-otel-observability.md)).
 
@@ -172,7 +183,7 @@ Same contract on Bes/Magpie/Plume from their first runnable container ([ADR 008]
 
 ## Phase 1 — Kithara skeleton
 
-**Status: complete.** Dual listeners, Module Registry, `Bardie.Module.Channel` mTLS (`auto` \| `preshared`), harness lib scaffolds, ADR-006 EF, OTel `bardie.kithara`.
+**Status: complete.** Dual listeners, Module Registry, `Bardie.Module.Channel` mTLS (`auto`  `preshared`), harness lib scaffolds, ADR-006 EF, OTel `bardie.kithara`.
 
 **Why:** Everything else hangs off registry, persistence, HTTP/gRPC hosts, and telemetry plumbing.
 
@@ -196,12 +207,14 @@ libs/
   Bardie.Harness.Source/
 ```
 
-2. Config: `DbProvider` / `DbConnectionString`, `BARDIE_JOIN_SECRETS`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `BARDIE_MODULE_MTLS_BOOTSTRAP`, `BARDIE_GRPC_TLS_*` ([configuration](../operations/configuration.md)).
-3. **OpenTelemetry bootstrap** in `Program.cs`: OTLP exporter, `service.name=bardie.kithara`, ASP.NET + gRPC + HttpClient + EF auto-instrumentation; W3C propagation on. Safe when collector is absent.
-4. EF migrations for core tables (ADR 006 shapes).
-5. **Module Registry** service: `Register` authenticated by **join secret**; issues client certs in `auto` mode (or confirms preshared material); **Heartbeat authenticated by mTLS** (not join secret). Track slug, capabilities, advertise address, JWKS (auth), search schema (sources); project AUTH/SOURCE into harness catalogs. Registry RPCs appear as spans once gRPC instrumentation is on.
-6. Dual listeners: HTTP `:8080`, gRPC HTTPS `:5000` (internal) via `Bardie.Module.Channel` helpers.
-7. Health/readiness endpoints suitable for Compose.
+1. Config: `DbProvider` / `DbConnectionString`, `BARDIE_JOIN_SECRETS`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `BARDIE_MODULE_MTLS_BOOTSTRAP`, `BARDIE_GRPC_TLS_*` ([configuration](../operations/configuration.md)).
+2. **OpenTelemetry bootstrap** in `Program.cs`: OTLP exporter, `service.name=bardie.kithara`, ASP.NET + gRPC + HttpClient + EF auto-instrumentation; W3C propagation on. Safe when collector is absent.
+3. EF migrations for core tables (ADR 006 shapes).
+4. **Module Registry** service: `Register` authenticated by **join secret**; issues client certs in `auto` mode (or confirms preshared material); **Heartbeat authenticated by mTLS** (not join secret). Track slug, capabilities, advertise address, JWKS (auth), search schema (sources); project AUTH/SOURCE into harness catalogs. Registry RPCs appear as spans once gRPC instrumentation is on.
+5. Dual listeners: HTTP `:8080`, gRPC HTTPS `:5000` (internal) via `Bardie.Module.Channel` helpers.
+6. Health/readiness endpoints suitable for Compose.
+
+
 
 ### Exit criteria
 
@@ -210,16 +223,19 @@ libs/
 - With a collector configured, a health or register request produces a trace for `bardie.kithara`.
 - No playlist-centric API.
 
+
+
 ### Explicitly not yet
 
 - Real Bes/Magpie behaviour, FFmpeg, ICY, Plume.
+
 ---
 
 
 
 ## Phase 2 — Auth vertical (Bes + Harness)
 
-**Status: complete.** Contracts package + Auth Harness + Bes + JWT verify + bootstrap `seedAdmin`.
+**Status: complete.** Contracts package + Auth Harness + Bes + JWT verify + bootstrap **AUTH-INVITE** (host OTP).
 
 **Why:** Control APIs need a verified identity. Auth stays behind Kithara (BFF).
 
@@ -229,7 +245,7 @@ libs/
 2. JWT Bearer middleware: verify **user** JWTs via registered module JWKS (cache JWKS).
 3. REST: `/api/auth/discovery`, `/authenticate`, `/refresh` ([auth](../interfaces/auth.md)).
 4. Guest JWT signing: env key if set, else auto-generate + persist; mint path used in Phase 6.
-5. Bootstrap via `seedAdmin` on Bes when DB empty; log welcome text; `must_rotate_credentials`.
+5. Bootstrap when DB empty: host invite OTP for DEFAULT_ADMIN (log once); claim → bind. Admin `/register` username-only + one-time `registration_password`.
 
 
 
@@ -374,15 +390,19 @@ libs/
 
 ### Landed under Phase 3 (control verbs)
 
-| Slice | Status |
-|-------|--------|
+
+| Slice                                                                                              | Status   |
+| -------------------------------------------------------------------------------------------------- | -------- |
 | `GET /api/search/quick` (`q`/`query`), `POST /api/search` + principal **search cache** (≠ history) | **Done** |
-| `GET /api/streams/listen`, `GET /api/streams/control` | **Done** |
-| `POST/GET/DELETE /api/streams`, `POST …/play` / `quickplay` | **Done** |
-| `POST …/pause`, `POST …/skip`, `GET …/now-playing` | **Done** |
-| Queue / quickqueue CRUD | **Done** |
-| Guest exchange + destroy guests with Struna (+ clear their search cache) | **Done** |
-| Owner + grant (+ protected-control guest) ACL stubs | **Done** |
+| `GET /api/streams/listen`, `GET /api/streams/control`                                              | **Done** |
+| `POST/GET/DELETE /api/streams`, `POST …/play` / `quickplay`                                        | **Done** |
+| `POST …/pause`, `POST …/skip`, `GET …/now-playing`                                                 | **Done** |
+| Queue / quickqueue CRUD                                                                            | **Done** |
+| Guest exchange + destroy guests with Struna (+ clear their search cache)                           | **Done** |
+| Owner + grant (+ protected-control guest) ACL stubs                                                | **Done** |
+
+
+
 
 ### Closed in Phase 6 — control
 
@@ -391,20 +411,28 @@ libs/
 3. Pause-as-silence + empty `play` unpause — **done**.
 4. `GET …/now-playing` aligned with ICY `StreamTitle` — **done**.
 
+
+
 ### Closed in Phase 6 — security ([security-audit](security-audit.md))
 
-| ID | Status |
-|----|--------|
-| **GUEST-REF-001** | **Done** — host guest refresh |
-| **LIB-TUNE-001** | **Done** — `EnsureKeyOwnedBy` |
-| **AUTH-ROT-001** | **Partial** — Bes mint + `new_password`; host control deny → Phase 8 (AUTH-ROT-002) |
-| **AUTH-ROLE-001** | **Done** — roles from binding |
-| **AUTH-JWKS-001** | **Done** — async JWKS snapshot |
-| **GUEST-XCHG-001** | **Partial** — 10/min rate limit; failure lockout → Phase 8 (GUEST-XCHG-002) |
+
+| ID                 | Status                                                                              |
+| ------------------ | ----------------------------------------------------------------------------------- |
+| **GUEST-REF-001**  | **Done** — host guest refresh                                                       |
+| **LIB-TUNE-001**   | **Done** — `EnsureKeyOwnedBy`                                                       |
+| **AUTH-ROT-001**   | **Done** — `UpdateUserBinding` / `bind_form`; host control deny (AUTH-ROT-002); seed/register orphan + subject collision fixed (AUTH-SEED-001 / AUTH-BIND-001) |
+| **AUTH-ROLE-001**  | **Done** — roles from binding                                                       |
+| **AUTH-JWKS-001**  | **Done** — async JWKS snapshot                                                      |
+| **AUTH-JWKS-002**  | **Done** — Register awaits JWKS; fail-closed rejects Register                       |
+| **GUEST-XCHG-001** | **Partial** — 10/min rate limit; failure lockout **Done** (GUEST-XCHG-002)         |
+| **AUTH-DISP-001**  | **Done** — unique `User.Username`; `/me` + invite `must_complete_binding` |
+
+
+
 
 ### Closed in Phase 6 — harness routing
 
-4. **AUTH-ORCH-001:** Auth Harness `provider_id → module` map — **done**.
+1. **AUTH-ORCH-001:** Auth Harness `provider_id → module` map — **done**.
 
 
 
@@ -412,10 +440,11 @@ libs/
 
 - Full DJ loop with Bes JWT and with guest JWT on a protected-control Struna.
 - Magpie is selectable only via `module` slug / priority — no Magpie-specific REST.
-- Security checklist items for Phase 6 in [security-audit](security-audit.md) are closed (GUEST-REF-001, LIB-TUNE-001, AUTH-ROLE-001, AUTH-JWKS-001; AUTH-ROT-001 / GUEST-XCHG-001 partial); soft residuals AUTH-ROT-002 / GUEST-XCHG-002 → Phase 8.
+- Security checklist items for Phase 6 in [security-audit](security-audit.md) are closed (GUEST-REF-001, LIB-TUNE-001, AUTH-ROLE-001, AUTH-JWKS-001, AUTH-ROT-001, AUTH-DISP-001); GUEST-XCHG-002 closed in Phase 8.
 - `provider_id` that is not equal to module slug still authenticates against the correct adapter.
 
 ---
+
 
 
 ## Phase 7 — Plume MVP (optional client)
@@ -437,17 +466,22 @@ Do **not** renumber Plume work as “Kithara 7.1 / 7.2”. Satisfies this phase 
 4. Listen surface (`/player/{slug}`): prominent now-playing; browser audio **off by default**; optional `/stream/{slug}`.
 5. Guest exchange UX for protected control; Register + OTel `bardie.plume`.
 
+
+
 ### Exit criteria
 
 - Human can create a Struna, search Magpie, play, and hear it in VLC via `/stream/{slug}`.
 - Removing Plume from Compose leaves API + stream + modules working.
 
+
+
 ### Cross-repo
 
-| Repo      | Follow-up                                                                                             |
-| --------- | ----------------------------------------------------------------------------------------------------- |
+
+| Repo      | Follow-up                                                                                                                                                                                                                                                                                                                     |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **plume** | [implementation-plan](https://github.com/Bardie-radio/plume/blob/main/docs/architecture/mvp/implementation-plan.md) · [03-ui-stack](https://github.com/Bardie-radio/plume/blob/main/docs/architecture/03-ui-stack.md) · [mvp/v0.1-scope](https://github.com/Bardie-radio/plume/blob/main/docs/architecture/mvp/v0.1-scope.md) |
-| **org**   | Edge path map `/control/*` + `/player/*` — keep aligned                                                       |
+| **org**   | Edge path map `/control/`* + `/player/*` — keep aligned                                                                                                                                                                                                                                                                       |
 
 
 ---
@@ -462,17 +496,20 @@ Do **not** renumber Plume work as “Kithara 7.1 / 7.2”. Satisfies this phase 
 
 1. Reference Compose: edge + `plume` + `kithara` + `magpie` + `bes` ([org deployment](https://github.com/Bardie-radio/.github/blob/main/profile/docs/architecture/05-deployment.md)).
 2. `BARDIE_JOIN_SECRETS` for all modules; audio/storage volumes as decided.
-3. Point every app at the **external** OTel collector (`OTEL_EXPORTER_OTLP_ENDPOINT`); confirm `service.name` values per [observability](../operations/observability.md).
-4. Smoke script / checklist: register → login → create → play → listen → skip — **and** a single play trace spanning Plume → Kithara → Magpie.
-5. **META-QA-001:** Host integration tests (discovery→`/me`, create→play→FIFO readable, guest exchange, `seedAdmin` bootstrap). Prefer landing tests alongside Phase 4–6 PRs; Phase 8 is the freeze that they must pass. Magpie/Bes module-local unit tests.
+3. Point every app at the **external** OTel collector (`OTEL_EXPORTER_OTLP_ENDPOINT`); confirm `service.name` values per [observability](../operations/observability.md). See [META-OTEL-001](known-issues.md#meta-otel-001--local-compose-omits-otel_exporter_otlp_endpoint) / [kithara#34](https://github.com/Bardie-radio/kithara/issues/34).
+4. Smoke script / checklist: register → login → create → play → listen → skip — **and** a single play trace spanning Plume → Kithara → Magpie. Requires [META-OTEL-002](known-issues.md#meta-otel-002--taskrun-drops-activity-context-magpie--neck) (Activity across `Task.Run`) before the continuous tree can hold; attrs/stages under [META-OTEL-003](known-issues.md#meta-otel-003--span-attrs--stage-coverage-lag-adr-008).
+5. **META-QA-001:** Host integration tests (discovery→`/me`, create→play→FIFO readable, guest exchange, **AUTH-INVITE** bootstrap: empty DB invite → claim → bind). Prefer landing tests alongside Phase 4–6 PRs; Phase 8 is the freeze that they must pass. Magpie/Bes module-local unit tests. **auth-invite-bindonly / AUTH-CLAIM-001:** claim allow-list + post-bind access death — **closed** (unit + Plume BFF invite tests).
 6. **META-OPS-001:** Align Local phase3 sine smoke with Magpie image config (Debug sine helper vs Release YouTube default) so the documented smoke path is honest.
-7. **META-DOC-001:** Sweep doc drift (library Tune path, Bes operations JWT wording, Magpie Register wording, MVP phase status vs code).
+7. **META-OPS-002:** Shrink finals — Alpine base for the MVP quartet; Kithara/Magpie ship bare-minimum FFmpeg.AutoGen shared libs (not apt/apk `ffmpeg` metapackages). See [known-issues](known-issues.md#meta-ops-002--final-images-bloated-ubuntu--full-ffmpeg) / [kithara#33](https://github.com/Bardie-radio/kithara/issues/33).
+8. **META-DOC-001:** Sweep doc drift (library Tune path, Bes operations JWT wording, Magpie Register wording, MVP phase status vs code).
+
+
 
 ### Exit criteria
 
 - Documented `docker compose up` path for the MVP quartet.
-- Collector shows a continuous play path across all four `bardie.*` service names.
-- META-QA-001 / META-OPS-001 / META-DOC-001 closed or explicitly deferred with owners.
+- Collector shows a continuous play path across all four `bardie.*` service names (META-OTEL-001/002 closed or explicitly deferred).
+- META-QA-001 / META-OPS-001 / META-OPS-002 / META-DOC-001 / META-OTEL-* closed or explicitly deferred with owners.
 
 ---
 
@@ -525,7 +562,7 @@ Out of scope stays out: Argus/Hecate, Beak/Cauda, Catbird/Starling, Icecast/HLS 
 | **Audio attach**        | Shared Compose volume; Kithara creates per-Struna session endpoints on demand; modules write PCM ([ADR 004](../adrs/004-source-instance-socket-audio-plane.md)). Prefer Unix sockets in implementation.                                    |
 | **Storage**             | Drivers **only on Kithara**; modules dial a **thin** put/get API. No per-module `BARDIE_STORAGE_`*.                                                                                                                                        |
 | **Pause**               | Part of common source contract (`PauseTrack` / `ResumeTrack`); Magpie implements; Starling omits `pause` capability.                                                                                                                       |
-| **Bootstrap admin**     | Auth capability `seedAdmin`; Kithara calls module; welcome text → Kithara logs; `must_rotate_credentials`.                                                                                                                                 |
+| **Bootstrap admin**     | **AUTH-INVITE:** host registration OTP (log once); `POST /api/auth/claim` → bind ceremony; admin `/register` username-only + one-time password. No `seedAdmin` / `SeedAdminBinding`. |
 | **Multi-source**        | Design for many sources from day one (priority / fan-out) — no Magpie-only shortcuts.                                                                                                                                                      |
 | **Search**              | **Global** REST; principal-scoped cache. Guests: clear on Struna teardown. Durable/managed: replace on next search + configurable timeout.                                                                                                 |
 | **Guests**              | Guest code **per Struna** → each exchange creates an **ephemeral guest user** + Kithara JWTs (+ refresh); destroyed with Struna. **Rotate code = block new joins only** (existing guests keep working until Struna delete).                |
@@ -534,7 +571,7 @@ Out of scope stays out: Argus/Hecate, Beak/Cauda, Catbird/Starling, Icecast/HLS 
 | **Guest JWT signing**   | If `BARDIE_GUEST_JWT_SIGNING_KEY` (or key file) is set → use it; else **auto-generate** on first boot and **persist** next to data volume. Access TTL default ~15m; refresh until Struna teardown (or capped refresh lifetime).            |
 | **Module channel auth** | Target: join secret at Register → Kithara issues module client cert → **mTLS on the whole gRPC surface** afterward.                                                                                                                        |
 | **Encode mode UI**      | Dropped from user-facing create for now; operator/FFmpeg profile instead.                                                                                                                                                                  |
-| **Tune model**          | Unified library unit for **queue + history + optional blob cache**; sparse Tunes OK (e.g. Starling URI, no bytes). `QueueEntry` → Tune id.                                                                                                  |
+| **Tune model**          | Unified library unit for **queue + history + optional blob cache**; sparse Tunes OK (e.g. Starling URI, no bytes). `QueueEntry` → Tune id.                                                                                                 |
 | **Naming**              | **durable user** / **managed user** (static UI; long-lived) / **ephemeral guest user** (guest code; Struna-scoped).                                                                                                                        |
 
 

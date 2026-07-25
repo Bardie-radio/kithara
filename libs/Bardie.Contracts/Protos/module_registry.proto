@@ -22,7 +22,7 @@ message RegisterRequest {
   string join_secret = 2;
   // Open module kind (e.g. "source", "auth", "client", or a host-defined value).
   string kind = 3;
-  // e.g. search, play, pause, prefetch, seedAdmin
+  // e.g. search, play, pause, prefetch, updateBinding
   repeated string capabilities = 4;
   // Where the host dials this module for per-call work RPCs.
   string grpc_advertise_address = 5;

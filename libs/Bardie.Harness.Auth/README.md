@@ -9,7 +9,8 @@ Depends on [`Bardie.Contracts`](../Bardie.Contracts/README.md) + [`Bardie.Module
 ## What it owns
 
 - Auth module catalog (slug, JWKS, capabilities)
-- Discovery merge (`GetProviders`), route `Authenticate` / `Refresh` / `SeedAdmin`
+- Discovery merge (`GetProviders`), route `Authenticate` / `Refresh` / `UpdateUserBinding`
+- Host invite bootstrap (AUTH-INVITE) and claim JWT mint stay in the Kithara host wrapper — not generic harness RPCs
 - Host port `IAuthPersistence` for user + binding persistence
 - Dials modules via Module.Channel mTLS helpers
 

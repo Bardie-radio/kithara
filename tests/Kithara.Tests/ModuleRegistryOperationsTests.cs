@@ -81,6 +81,7 @@ public class ModuleRegistryOperationsTests
 
         var ops = provider.GetRequiredService<ModuleRegistryOperations>();
         var authCatalog = provider.GetRequiredService<Bardie.Harness.Auth.Catalog.IAuthModuleCatalog>();
+        var jwksJson = CreateTestJwksJson();
 
         var response = ops.Register(new RegisterRequest
         {
@@ -88,15 +89,41 @@ public class ModuleRegistryOperationsTests
             JoinSecret = "auth-secret",
             Kind = WellKnownModuleKinds.Auth,
             GrpcAdvertiseAddress = "bes:5001",
-            Capabilities = { "seedAdmin" },
-            Auth = new AuthRegisterDetails { JwksUri = "https://bes/.well-known/jwks.json" },
+            Capabilities = { "updateBinding" },
+            Auth = new AuthRegisterDetails { JwksJson = jwksJson },
         });
 
         Assert.True(string.IsNullOrEmpty(response.ClientPrivateKeyPem));
         Assert.True(string.IsNullOrEmpty(response.ClientCertificatePem));
         Assert.False(string.IsNullOrWhiteSpace(response.CaCertificatePem));
         Assert.True(authCatalog.TryGet("bes", out var auth));
-        Assert.Equal("https://bes/.well-known/jwks.json", auth!.JwksUri);
+        Assert.Equal(jwksJson, auth!.JwksJson);
+    }
+
+    [Fact]
+    public async Task Auth_register_fails_closed_when_jwks_unavailable()
+    {
+        await using var provider = await BuildProviderAsync(
+            ModuleChannelBootstrapMode.Auto,
+            """{"bes":"auth-secret"}""");
+
+        var ops = provider.GetRequiredService<ModuleRegistryOperations>();
+        var authCatalog = provider.GetRequiredService<Bardie.Harness.Auth.Catalog.IAuthModuleCatalog>();
+        var registry = provider.GetRequiredService<InMemoryModuleRegistry>();
+
+        var ex = Assert.Throws<RpcException>(() => ops.Register(new RegisterRequest
+        {
+            Slug = "bes",
+            JoinSecret = "auth-secret",
+            Kind = WellKnownModuleKinds.Auth,
+            GrpcAdvertiseAddress = "bes:5001",
+            Capabilities = { "updateBinding" },
+            Auth = new AuthRegisterDetails { JwksUri = "https://bes.invalid/.well-known/jwks.json" },
+        }));
+
+        Assert.Equal(StatusCode.FailedPrecondition, ex.StatusCode);
+        Assert.False(authCatalog.TryGet("bes", out _));
+        Assert.False(registry.TryGet("bes", out _));
     }
 
     [Fact]
@@ -223,5 +250,21 @@ public class ModuleRegistryOperationsTests
         var store = provider.GetRequiredService<IModuleCertificateStore>();
         await store.EnsureLoadedAsync();
         return provider;
+    }
+
+    private static string CreateTestJwksJson()
+    {
+        using var rsa = System.Security.Cryptography.RSA.Create(2048);
+        var parameters = rsa.ExportParameters(includePrivateParameters: false);
+        var jwk = new Dictionary<string, string>
+        {
+            ["kty"] = "RSA",
+            ["use"] = "sig",
+            ["alg"] = "RS256",
+            ["kid"] = "test",
+            ["n"] = Microsoft.IdentityModel.Tokens.Base64UrlEncoder.Encode(parameters.Modulus!),
+            ["e"] = Microsoft.IdentityModel.Tokens.Base64UrlEncoder.Encode(parameters.Exponent!),
+        };
+        return System.Text.Json.JsonSerializer.Serialize(new { keys = new[] { jwk } });
     }
 }

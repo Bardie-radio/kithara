@@ -119,6 +119,18 @@ internal static class StrunaResourceGate
             {
                 return Results.Forbid();
             }
+
+            var rotateDeny = CredentialsRotationGate.DenyIfRequired(principal);
+            if (rotateDeny is not null)
+            {
+                return rotateDeny;
+            }
+
+            var bindDeny = BindingCompletionGate.DenyIfRequired(principal);
+            if (bindDeny is not null)
+            {
+                return bindDeny;
+            }
         }
         else
         {
@@ -129,6 +141,21 @@ internal static class StrunaResourceGate
             if (!allowed)
             {
                 return Results.Forbid();
+            }
+
+            if (requireControl)
+            {
+                var rotateDeny = CredentialsRotationGate.DenyIfRequired(principal);
+                if (rotateDeny is not null)
+                {
+                    return rotateDeny;
+                }
+
+                var bindDeny = BindingCompletionGate.DenyIfRequired(principal);
+                if (bindDeny is not null)
+                {
+                    return bindDeny;
+                }
             }
         }
 

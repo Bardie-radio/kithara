@@ -5,8 +5,13 @@ public sealed record MergedProviderDescriptor(
     string DisplayName,
     string ModuleSlug,
     string UiMode,
-    IReadOnlyList<FormFieldDescriptor> FormFields,
-    string? AuthorizeUrl);
+    IReadOnlyList<FormFieldDescriptor> LoginFormFields,
+    IReadOnlyList<FormFieldDescriptor> BindFormFields,
+    string? AuthorizeUrl)
+{
+    /// <summary>Legacy alias for <see cref="LoginFormFields"/>.</summary>
+    public IReadOnlyList<FormFieldDescriptor> FormFields => LoginFormFields;
+}
 
 public sealed record FormFieldDescriptor(
     string Name,
@@ -33,8 +38,15 @@ public sealed record RefreshResult(
     long ExpiresIn,
     string? FailureReason);
 
-public sealed record SeedAdminResult(
+public sealed record InviteBootstrapResult(
     bool Created,
-    string WelcomeLogText,
     Guid? UserId,
-    string? ExternalSubject);
+    string Username,
+    string RegistrationPassword);
+
+public sealed record UpdateUserBindingResult(
+    bool Ok,
+    Guid? UserId,
+    string? ExternalSubject,
+    bool MustRotateCredentials,
+    string? FailureReason);

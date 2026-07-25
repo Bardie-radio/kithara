@@ -27,7 +27,14 @@ public sealed class KitharaDbContext : DbContext
             entity.Property(x => x.Status).HasMaxLength(32).IsRequired();
             entity.Property(x => x.ManagedByModuleSlug).HasMaxLength(64);
             entity.Property(x => x.MustRotateCredentials).IsRequired();
+            entity.Property(x => x.Username).HasMaxLength(128);
+            entity.Property(x => x.InvitePasswordHash).HasMaxLength(256);
+            entity.Property(x => x.MustCompleteBinding).IsRequired();
+            entity.Property(x => x.InviteRolesJson).HasMaxLength(512);
             entity.HasIndex(x => x.Kind);
+            entity.HasIndex(x => x.Username)
+                .IsUnique()
+                .HasFilter("\"Username\" IS NOT NULL");
         });
 
         modelBuilder.Entity<UserAuthBinding>(entity =>
@@ -37,6 +44,9 @@ public sealed class KitharaDbContext : DbContext
             entity.Property(x => x.ProviderSlug).HasMaxLength(64).IsRequired();
             entity.Property(x => x.ExternalSubject).HasMaxLength(256);
             entity.Property(x => x.PayloadJson).IsRequired();
+            entity.HasIndex(x => new { x.ProviderSlug, x.ExternalSubject })
+                .IsUnique()
+                .HasFilter("\"ExternalSubject\" IS NOT NULL");
             entity.HasOne(x => x.User)
                 .WithMany(x => x.AuthBindings)
                 .HasForeignKey(x => x.UserId)

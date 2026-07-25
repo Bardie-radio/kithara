@@ -172,10 +172,19 @@ namespace Kithara.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid?>("GuestStrunaId");
 
+                    b.Property<string>("InvitePasswordHash")
+                        .HasMaxLength(256);
+
+                    b.Property<string>("InviteRolesJson")
+                        .HasMaxLength(512);
+
                     b.Property<int>("Kind");
 
                     b.Property<string>("ManagedByModuleSlug")
                         .HasMaxLength(64);
+
+                    b.Property<bool>("MustCompleteBinding")
+                        .IsRequired();
 
                     b.Property<bool>("MustRotateCredentials")
                         .IsRequired();
@@ -184,9 +193,16 @@ namespace Kithara.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(32);
 
+                    b.Property<string>("Username")
+                        .HasMaxLength(128);
+
                     b.HasKey("Id");
 
                     b.HasIndex("Kind");
+
+                    b.HasIndex("Username")
+                        .IsUnique()
+                        .HasFilter("\"Username\" IS NOT NULL");
 
                     b.ToTable("users", (string)null);
                 });
@@ -205,6 +221,10 @@ namespace Kithara.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.HasKey("UserId", "ProviderSlug");
+
+                    b.HasIndex("ProviderSlug", "ExternalSubject")
+                        .IsUnique()
+                        .HasFilter("\"ExternalSubject\" IS NOT NULL");
 
                     b.ToTable("user_auth_bindings", (string)null);
                 });

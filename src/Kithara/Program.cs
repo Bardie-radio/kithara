@@ -37,7 +37,10 @@ builder.Services.AddKitharaNeck(builder.Configuration);
 builder.Services.AddKitharaSearch(builder.Configuration);
 builder.Services.AddKitharaAuthAuthentication(builder.Configuration);
 builder.Services.AddModuleRegistry(builder.Configuration);
-builder.Services.AddHostedService<SeedAdminBootstrapHostedService>();
+builder.Services.AddHostedService<InviteBootstrapHostedService>();
+builder.Services.AddSingleton<GuestExchangeLockout>();
+builder.Services.AddSingleton<InviteClaimLockout>();
+builder.Services.AddSingleton<ClaimInviteJwtService>();
 
 // GUEST-XCHG-001: guest-code exchange is unauthenticated — bound by IP + Struna id.
 builder.Services.AddRateLimiter(options =>
@@ -54,6 +57,18 @@ builder.Services.AddRateLimiter(options =>
                 : string.Empty;
         return RateLimitPartition.GetFixedWindowLimiter(
             $"{ip}:{strunaKey}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            });
+    });
+    options.AddPolicy("invite-claim", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            ip,
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 10,

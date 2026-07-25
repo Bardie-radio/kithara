@@ -27,12 +27,18 @@ See [auth.md](auth.md).
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/auth/discovery` | Aggregated auth providers |
-| POST | `/api/auth/authenticate` | Opaque login → module JWT + refresh |
+| GET | `/api/auth/discovery` | Aggregated auth providers (`login_form` / `redirect` + optional `bind_form`) |
+| POST | `/api/auth/authenticate` | `login_form` bag → module JWT + refresh |
 | POST | `/api/auth/refresh` | Refresh → new JWT (module **or** host guest path — see below) |
 | GET/POST | `/api/auth/callback` | Browser return for redirect flows (forwarded to module) |
+| POST | `/api/auth/register` | Admin: create durable `User` (**username only**); returns **`registration_password` once** (invite OTP) |
+| POST | `/api/auth/claim` | Public: `username` + `registration_password` → claim-scoped JWT (`kithara.claim`, `must_complete_binding`) |
+| POST | `/api/auth/bindings/{provider}` | `UpdateUserBinding` (`bind` / `update`) — invite bind clears `must_complete_binding`; module may clear `must_rotate_credentials` on update |
+| GET | `/api/auth/me` | Current principal: **`username`**, `must_complete_binding`, `must_rotate_credentials` |
 
 Kithara verifies **login** JWTs via module JWKS; it does not mint them. It **does** mint JWTs for **ephemeral guest users** (see below).
+
+While `must_complete_binding` is set (claim JWT / `bardie_bind_only`), authenticated REST is allow-listed to **`GET /api/auth/me`** and **`POST /api/auth/bindings/{provider}`** only (`403` + `must_complete_binding` elsewhere, including `/register` and `/api/search`). Claim access tokens stop resolving after successful invite bind. While `must_rotate_credentials` is set, control mutations (create / play / queue / skip / grants, …) return `403` (`credentials_rotation_required`); binding routes stay allowed. Invite completion does **not** use `must_rotate_credentials`.
 
 **Guest refresh (GUEST-REF-001):** before dialing an auth module, `POST /api/auth/refresh` detects Kithara guest material (e.g. claim `bardie_provider=kithara.guest`), validates the refresh locally, and remints access (+ refresh) until the Struna still exists / capped lifetime. Login refresh still routes to the adapter.
 
@@ -43,7 +49,7 @@ Kithara verifies **login** JWTs via module JWKS; it does not mint them. It **doe
 | POST | `/api/streams/{id}/guest/exchange` | **Unauthenticated** bootstrap. Body: short guest code → create **ephemeral guest user** + Kithara-signed JWT (+ refresh) |
 | POST | `/api/streams/by-slug/{slug}/guest/exchange` | Same as above; slug for client UX (code stays out of the URL) |
 
-Rate-limit (GUEST-XCHG-001): fixed window per IP + Struna; failures → `429` (failure lockout polish → Phase 8). Each exchange creates a **new** ephemeral guest user for that joiner (Struna-scoped; destroyed with the Struna). Do not send the guest code on every request. Details: [struna-access](../domains/struna-access.md).
+Rate-limit (GUEST-XCHG-001): fixed window **10/min** per IP + Struna. Failure lockout (GUEST-XCHG-002): after **5** consecutive bad codes on that partition, lock exchange for **15 minutes** (`429` + `guest_exchange_locked`). Each successful exchange creates a **new** ephemeral guest user for that joiner (Struna-scoped; destroyed with the Struna). Do not send the guest code on every request. Details: [struna-access](../domains/struna-access.md).
 
 ## Strunas
 
