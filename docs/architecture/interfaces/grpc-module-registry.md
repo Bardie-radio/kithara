@@ -123,6 +123,8 @@ Work RPCs live on **per-kind contracts** the module hosts at `grpc_advertise_add
 
 Same `Register` as everyone else: join secret + `kind=client` + optional `ClientRegisterDetails` (`user-aware` \| `static` + permission ceiling when static). Day-to-day Struna control still uses REST `/api` — see [clients](../domains/clients.md).
 
+**Locked:** all clients use Registry `Register` + `Heartbeat` only for mesh membership. There are **no** day-to-day client work RPCs. **Static** clients will get **client→host managed-user admin** RPCs (mTLS slug identity) when Beak needs them — **not** join-secret admin on `/api`. User-aware clients (Plume) never need that surface.
+
 ## Observability
 
 Each work RPC is its own client call from Kithara → module: propagate W3C `traceparent`, record module slug + RPC name. Module OTel names stay `bardie.source.*` / `bardie.auth.*` / `bardie.plume` (etc.).

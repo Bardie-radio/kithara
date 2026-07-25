@@ -16,8 +16,10 @@ Client-facing HTTP API on Kithara (any client module). Base path: `/api`.
 | Caller | Credential on `/api` |
 |--------|----------------------|
 | User-aware clients | Bearer **user JWT** from an auth module |
-| Static clients | **Per-user credentials** for day-to-day; **join secret** only for managed-user admin |
+| Static clients | **Per-user credentials** for day-to-day — **no** join secret on `/api` |
 | Protected-control guests | Bearer **ephemeral guest JWT** after code exchange (Kithara-minted for a new ephemeral guest user) |
+
+Managed-user **admin** (create/list/revoke, credential mint/reset) is **not** a REST `/api` surface. Locked destination: **mTLS client→host** gRPC for static modules only — see [clients](../domains/clients.md).
 
 See [auth.md](auth.md).
 

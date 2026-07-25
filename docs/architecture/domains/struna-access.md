@@ -117,7 +117,7 @@ Party DJ is still not a durable account — but it **is** a real row in Kithara�
 
 ## Bots / static clients
 
-**Managed users** (day-to-day control) plus module **join secret** for admin only — see [clients](clients.md). For listen-only bots, a **protected** Struna with a known listen token also works.
+**Managed users** (day-to-day control) plus planned **mTLS module admin** for create/revoke — see [clients](clients.md). For listen-only bots, a **protected** Struna with a known listen token also works.
 
 **Related:** [interfaces/http-stream-output.md](../interfaces/http-stream-output.md) · [interfaces/auth.md](../interfaces/auth.md) · [ADR 009](../adrs/009-struna-access-and-routing.md)
 
