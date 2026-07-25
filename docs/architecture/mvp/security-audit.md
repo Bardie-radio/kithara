@@ -2,9 +2,10 @@
 
 Living audit of trust assumptions across the Module mesh, auth vertical, library/storage, and guest paths. Not a full product pen-test — focused on **who can become trusted**, **who gets admin**, and **what tokens/keys actually do**.
 
-**Last review:** MVP backend Phases 4–6 (Jul 2026) on `feat/mvp-skeleton`. Prior index: Phases 1–3 findings below.
+**Last review:** Full-stack MVP including Plume (Jul 2026). Prior: Phases 4–6 backend audit; Phases 1–3 index below.
 
-**Remediation status:** Phase 4–6 product remediations are **closed** in code (see [status table](#remediation-status-phases-4–6)). Soft residuals: `AUTH-ROT-002` host API gate, `GUEST-XCHG-002` lockout. Phase 8 owns `META-*` + open polish findings. `MESH-REG-*` stays ops + backlog.
+**Remediation status:** Phase 4–6 product remediations remain **closed** / partial as in the status table. Plume Phases 1–6 **feature-complete** (`/player` autoplay is intentional). Soft residuals + Plume findings → Phase 8. `MESH-REG-*` stays ops + backlog.
+
 
 ### ID scheme
 
@@ -18,6 +19,7 @@ Living audit of trust assumptions across the Module mesh, auth vertical, library
 | `LIB` | Tune / blob ownership |
 | `NECK` | Jobs, TrackStatus, PCM, orphan recovery |
 | `STREAM` | ICY listen-token |
+| `PLUME` | BFF session, player, CSRF/CSP, UI policy |
 | `META` | QA / docs / ops process debt |
 
 Historical aliases (`SEC-*`, `NEW-*`, `DES-*`, `KI-*`, `QA-*`, `DOC-*`, `OPS-*`) → [alias table](#historical-aliases).
@@ -53,7 +55,7 @@ Historical aliases (`SEC-*`, `NEW-*`, `DES-*`, `KI-*`, `QA-*`, `DOC-*`, `OPS-*`)
 |----|-----|------|---------|-----------|-------------------|
 | [GUEST-REF-001](#guest-ref-001--guest-refresh-tokens-are-dead-on-arrival) | **P0** | Guests | Guest refresh minted but `/api/auth/refresh` only dials auth modules | **6** | **Fixed** |
 | [LIB-TUNE-001](#lib-tune-001--ensuretune-skips-storage_key-ownership) | **P0** | Library | `EnsureTune` does not call `BlobKeyLayout.EnsureKeyOwnedBy` | **6** | **Fixed** |
-| [AUTH-ROT-001](#auth-rot-001--must_rotate_credentials-is-advisory-forever) | **P0** | Bes | Seed sets rotate flag; Authenticate never enforces / no password-change | **6** | **Partial** — Bes mint + `new_password`; host does not deny control |
+| [AUTH-ROT-001](#auth-rot-001--must_rotate_credentials-is-advisory-forever) | **P0** | Bes | Seed sets rotate flag; Authenticate never enforces / no password-change | **6** → **8** | **Fixed** — `UpdateUserBinding` + `bind_form`; host control gate (AUTH-ROT-002) |
 | [AUTH-ROLE-001](#auth-role-001--every-successful-login-mints-rolesadmin) | **P0** | Bes / AuthZ | Every mint hardcodes `roles=[admin]` | **6** | **Fixed** |
 | [AUTH-JWKS-001](#auth-jwks-001--jwks-resolver-uses-sync-over-async) | **P1** | Auth JWT | `GetAwaiter().GetResult()` in signing-key resolver | **6** | **Fixed** |
 | [GUEST-XCHG-001](#guest-xchg-001--guest-exchange-unauthenticated--no-rate-limit) | **P1** | Guests | Open `POST …/guest/exchange`; short codes brute-forceable | **6** | **Partial** — 10/min rate limit; no failure lockout |
@@ -73,9 +75,9 @@ Historical aliases (`SEC-*`, `NEW-*`, `DES-*`, `KI-*`, `QA-*`, `DOC-*`, `OPS-*`)
 |----|---------------|-----------|
 | **GUEST-REF-001** | `GuestJwtService.TryRefreshAsync`; `POST /api/auth/refresh` short-circuits `kithara.guest` | — |
 | **LIB-TUNE-001** | `LibraryService.EnsureTune` → `BlobKeyLayout.EnsureKeyOwnedBy` | — |
-| **AUTH-ROT-001** | Bes binding `MustRotate` + Authenticate `new_password` clears flag | Host/API gate when rotate required; advertise `new_password` on GetProviders form |
-| **AUTH-ROLE-001** | Roles from binding; SeedAdmin = admin once; default `user` | — |
-| **AUTH-JWKS-001** | JWKS snapshot + hosted refresh; resolver reads cache only | Cold window until first refresh |
+| **AUTH-ROT-001** | `SeedAdminBinding` + `UpdateUserBinding` / `bind_form`; Authenticate login-only | — |
+| **AUTH-ROLE-001** | Roles from binding; SeedAdminBinding = admin once; default `user` | — |
+| **AUTH-JWKS-001** | JWKS snapshot + hosted refresh; resolver reads cache only | — |
 | **GUEST-XCHG-001** | `guest-exchange` fixed window 10/min per IP+Struna | Failure lockout |
 | **MESH-CHN-001** | `CertificateIdentity.IsHostClient` inbound; `expectedServerIdentity` outbound | — |
 | **AUTH-ORCH-001** | Auth harness discovery `provider_id → module` map | — |
@@ -84,13 +86,33 @@ Historical aliases (`SEC-*`, `NEW-*`, `DES-*`, `KI-*`, `QA-*`, `DOC-*`, `OPS-*`)
 
 | ID | Sev | Summary | Owner |
 |----|-----|---------|-------|
-| **AUTH-ROT-002** | P1 | `must_rotate` still advisory at Kithara control edge (extends AUTH-ROT-001) | Phase 8 / auth follow-up |
+| **AUTH-ROT-002** | P1 | Host denies control while `must_rotate` (`403` + `credentials_rotation_required`) | **Fixed** (Phase 8) |
 | **NECK-JOB-001** | P2 | TrackStatus disconnect without terminal event can orphan Neck jobs | Phase 8 / Neck polish — drives [NECK-SWP-001](known-issues.md#neck-swp-001--orphan-writer-sweep-runs-on-every-play-including-new-strunas) / [kithara#26](https://github.com/Bardie-radio/kithara/issues/26) |
 | **GUEST-XCHG-002** | P2 | Guest rate-limit without failure lockout (extends GUEST-XCHG-001) | Phase 8 |
 | **STREAM-TOK-001** | P2 | Listen-token compare not constant-time | Phase 8 |
-| **AUTH-JWKS-002** | P2 | JWKS snapshot cold window at boot | Phase 8 |
+| **AUTH-JWKS-002** | P2 | JWKS snapshot cold window at boot | **Fixed** — Register awaits first JWKS refresh |
 | **META-QA-001** | P1 | No host E2E; Bes/Magpie have no module-local tests | Phase 8 ([kithara#22](https://github.com/Bardie-radio/kithara/issues/22), bes#6, magpie#2) |
-| **META-DOC-001** | P3 | Plan/module docs lag code | Phase 8 ([kithara#23](https://github.com/Bardie-radio/kithara/issues/23), bes#7, magpie#3) |
+| **META-DOC-001** | P3 | Plan/module docs lag code (incl. `/player` autoplay wording) | Phase 8 ([kithara#23](https://github.com/Bardie-radio/kithara/issues/23), [plume#12](https://github.com/Bardie-radio/plume/issues/12), bes#7, magpie#3) |
+| **META-OPS-002** | P2 | Final images: Ubuntu aspnet + full apt `ffmpeg`; Alpine + bare-minimum libav | Phase 8 ([kithara#33](https://github.com/Bardie-radio/kithara/issues/33), [magpie#6](https://github.com/Bardie-radio/magpie/issues/6), [plume#13](https://github.com/Bardie-radio/plume/issues/13), [bes#10](https://github.com/Bardie-radio/bes/issues/10)) — [known-issues](known-issues.md#meta-ops-002--final-images-bloated-ubuntu--full-ffmpeg) |
+| **META-OTEL-001** | P1 | Local Compose omits `OTEL_EXPORTER_OTLP_ENDPOINT` | Phase 8 ([kithara#34](https://github.com/Bardie-radio/kithara/issues/34)) — [known-issues](known-issues.md#meta-otel-001--local-compose-omits-otel_exporter_otlp_endpoint) |
+| **META-OTEL-002** | P1 | `Task.Run` drops Activity (Magpie track + Neck encode) | Phase 8 ([kithara#36](https://github.com/Bardie-radio/kithara/issues/36)) — [known-issues](known-issues.md#meta-otel-002--taskrun-drops-activity-context-magpie--neck) |
+| **META-OTEL-003** | P2 | Span attrs / Magpie stages / listen tags lag ADR 008 | Phase 8 ([kithara#35](https://github.com/Bardie-radio/kithara/issues/35)) — [known-issues](known-issues.md#meta-otel-003--span-attrs--stage-coverage-lag-adr-008) |
+
+### Full-stack review (Plume + docs) — Jul 2026
+
+| ID | Sev | Summary | Status |
+|----|-----|---------|--------|
+| **DOC-STREAM-001** | P1 | `struna-access.md` Web/Plume protected = “Session/cookie”; code still needs `?token=` | **Open** — Kithara docs |
+| **PLUME-SEC-001** | P2 | No Content-Security-Policy on Plume host | **Open** |
+| **PLUME-SEC-002** | P2 | BFF state-changing routes: SameSite only (no antiforgery tokens) | **Open** |
+| **PLUME-SESS-001** | P2 | In-memory session token store (multi-replica / restart) | **Open** (MVP limit) |
+| **GUEST-XCHG-003** | P3 | Dual guest-exchange routes (id vs slug) → separate rate-limit partitions | **Open** |
+
+**Withdrawn — not a product bug:** former **PLUME-AUD-001** (public `/player` auto-start). **Decision (Jul 2026):** the listen/player page is expected to play on load. Track as **docs only** under [META-DOC-001](https://github.com/Bardie-radio/kithara/issues/23) and [plume#12](https://github.com/Bardie-radio/plume/issues/12): replace “audio off by default” with “`/player` autoplays; optional listen elsewhere is opt-in.”
+
+**Plume BFF strengths (no finding):** JWTs never in browser; discovery by `ui_mode` only; control gated by session + control list; guest exchange → server session; Register + `bardie.plume` OTel; focused BFF/auth/player tests.
+
+**Doc cluster under META-DOC-001 also includes:** Kithara Phase 7 still “Next” while Plume checklist is done; Bes ops “JWT not wired”; Magpie ytdl wording; Tune prototype path; Plume `security-notes` stale SEC claims; Harness vs Orchestrator naming; shadcn claimed but not shipped; **player autoplay vs “off by default” wording** (code intentional).
 
 ---
 
@@ -121,12 +143,12 @@ gRPC checks `module_slug ==` caller identity, then passes `StorageKey` through w
 ## AUTH-ROT-001 — `must_rotate_credentials` is advisory forever
 
 **Severity:** P0  
-**Component:** Bes `SeedAdmin` / `Authenticate`  
-**Fix:** Phase **6** (Bes + harness)
+**Component:** Bes `SeedAdminBinding` / `Authenticate` / host control  
+**Fix:** Phase **6** (partial) → **8** (closed)
 
-`SeedAdmin` sets `MustRotateCredentials=true` and logs a one-time password, but Authenticate always returns/mints with rotate cleared and there is no password-change / binding-update path. Seeded password keeps working.
+`SeedAdmin` invented users and Authenticate accepted `new_password` for rotate; the host never denied control while `MustRotateCredentials` was set.
 
-**Remediation:** Persist and honor the flag on Authenticate (return `must_rotate_credentials=true` and mint restricted tokens until change); password-change via Authenticate bag (`new_password` when rotating); clear flag on success.
+**Remediation (shipped):** Kithara invents DEFAULT_ADMIN → `SeedAdminBinding`; binding create/update via `UpdateUserBinding` + discovery `bind_form` (ceremony bind/update). Authenticate is login-only. Host returns `403` + `credentials_rotation_required` on control while rotate is required (AUTH-ROT-002).
 
 ---
 
@@ -260,10 +282,13 @@ Join secret is the **bootstrap** credential before mTLS exists. Auto deliberatel
 - [ ] Document who can read Compose/secret store (same trust as join secrets)
 - [x] Guest refresh works for `kithara.guest` (GUEST-REF-001)
 - [x] Guest exchange rate-limited (GUEST-XCHG-001 — lockout still optional)
-- [x] Bes roles from binding; SeedAdmin is first admin only (AUTH-ROLE-001)
-- [~] `must_rotate` returned and clearable via `new_password` — host control gate still open (AUTH-ROT-001 / AUTH-ROT-002)
+- [x] Bes roles from binding; SeedAdminBinding is first admin only (AUTH-ROLE-001)
+- [x] `must_rotate` cleared via `UpdateUserBinding` / `bind_form`; host denies control (AUTH-ROT-001 / AUTH-ROT-002)
+- [x] JWKS snapshot warm on auth Register (AUTH-JWKS-002)
 - [x] Channel host↔slug pin on work dials (MESH-CHN-001)
-- [ ] Phase 8: host E2E + module tests + doc sweep
+- [x] Plume BFF: no JWT in browser; discovery without provider-id branching
+- [x] Plume `/player` may autoplay (product intent — docs under META-DOC-001)
+- [ ] Phase 8: host E2E + module tests + doc sweep (incl. DOC-STREAM-001, player autoplay wording)
 
 ---
 

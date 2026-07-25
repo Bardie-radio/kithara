@@ -7,12 +7,12 @@ namespace Bardie.Harness.Auth;
 /// </summary>
 public static class WellKnownAuthCapabilities
 {
-    /// <summary>Host may call <c>SeedAdmin</c> when the user DB is empty.</summary>
+    /// <summary>Host may call <c>SeedAdminBinding</c> when the user DB is empty.</summary>
     public const string SeedAdmin = "seedAdmin";
 
-    /// <summary>Reserved — open signup via <c>Authenticate</c> without operator seed.</summary>
+    /// <summary>Reserved — open signup via <c>bind_form</c> → <c>UpdateUserBinding</c> without operator seed.</summary>
     public const string SelfRegister = "selfRegister";
 
-    /// <summary>Reserved — password-reset ceremony in the opaque <c>Authenticate</c> bag.</summary>
+    /// <summary>Reserved — password-reset ceremony via <c>bind_form</c>.</summary>
     public const string PasswordReset = "passwordReset";
 }

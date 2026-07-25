@@ -38,28 +38,30 @@ sequenceDiagram
 
 `GET /api/auth/discovery` — Auth Harness merges `GetProviders()` from registered adapters. There is no built-in provider.
 
-MVP: one `form_schema` provider from **Bes** (`ProviderDescriptor.ui.form_schema` with typed fields). Client (e.g. Plume) renders from the field list — adapters do **not** host login HTML. Clients switch on the `ui` oneof case only; they must not branch on provider `id`.
+MVP: one provider from **Bes** with `ui.login_form` (typed fields) plus optional `bind_form` for register / rotate / self-update. Client (e.g. Plume) renders from the field lists — adapters do **not** host login HTML. Clients switch on the `ui` oneof case and `bind_form` presence only; they must not branch on provider `id`.
 
 Redirect-style providers (Argus) set `ui.redirect.authorize_url`. The browser returns to **Kithara**, not to Plume or the adapter. Kithara forwards the opaque callback payload to that adapter’s `Authenticate`. Path: `/api/auth/callback` under `/api/*` (no separate public `/auth` prefix for MVP).
 
-## Authenticate, refresh, and API access
+## Authenticate, refresh, binding, and API access
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/auth/authenticate` | Opaque payload → module `Authenticate` → if allowed, **module-issued (or forwarded) JWT** + refresh |
+| POST | `/api/auth/authenticate` | `login_form` bag → module `Authenticate` → if allowed, **module-issued (or forwarded) JWT** + refresh |
 | POST | `/api/auth/refresh` | Opaque refresh → **module** `Refresh` **or** host guest remint (see below) |
 | GET/POST | `/api/auth/callback` | Browser return for redirect flows; same path as authenticate — **not** OIDC-named |
+| POST | `/api/auth/register` | Admin creates durable `User` → module `UpdateUserBinding` ceremony `bind` + `bind_form` bag |
+| POST | `/api/auth/bindings/{provider}` | Self binding create/update → `UpdateUserBinding` (`bind` if none, else `update`) + same `bind_form` bag — includes forced rotate |
 
 Kithara does not mint login JWTs and does not interpret provider-specific crypto beyond verifying signatures with the module’s registered JWKS. It routes the bag, persists binding data when asked, and enforces Struna ACLs using claims/roles from the verified JWT (plus DB).
 
 - **Refresh (login):** entirely on the auth-module side.
 - **Refresh (ephemeral guest — Phase 6 / GUEST-REF-001):** host path on the same `POST /api/auth/refresh`. Detect Kithara guest (e.g. `bardie_provider=kithara.guest`), validate + remint until Struna teardown / capped lifetime — do **not** dial an auth adapter.
 - Revoke / logout: module- and IdP-dependent for login users; guests die with the Struna. Rotating the guest code **does not** kill existing guests — it only blocks new exchanges.
-- **`must_rotate_credentials`:** seeded admins must change creds on first login; optional force-rotate for any durable user later (Phase 6 / AUTH-ROT-001).
+- **`must_rotate_credentials`:** seeded admins (and any forced rotate) must complete `UpdateUserBinding` before control. Host returns `403` + `credentials_rotation_required` on play/queue/skip/grants/create while the flag is set; binding update remains allowed (AUTH-ROT-002).
 
-## Bootstrap admin (`seedAdmin`)
+## Bootstrap admin (`seedAdmin` → `SeedAdminBinding`)
 
-When the user DB is empty, Kithara may call `SeedAdmin` on an auth module that advertised the `seedAdmin` capability (Bes). The module creates credentials, Kithara persists the user, and Kithara logs the module’s welcome text (one-time secret) to the **Kithara container log**. See [grpc-auth-adapter](grpc-auth-adapter.md).
+When the user DB is empty, Kithara creates DEFAULT_ADMIN and calls `SeedAdminBinding` on an auth module that advertised the `seedAdmin` capability (Bes). The module returns binding material + welcome text; Kithara persists and logs the welcome text (one-time secret) to the **Kithara container log**. See [grpc-auth-adapter](grpc-auth-adapter.md).
 
 ## Guest control (protected Struna)
 

@@ -119,6 +119,12 @@ internal static class StrunaResourceGate
             {
                 return Results.Forbid();
             }
+
+            var rotateDeny = CredentialsRotationGate.DenyIfRequired(principal);
+            if (rotateDeny is not null)
+            {
+                return rotateDeny;
+            }
         }
         else
         {
@@ -129,6 +135,15 @@ internal static class StrunaResourceGate
             if (!allowed)
             {
                 return Results.Forbid();
+            }
+
+            if (requireControl)
+            {
+                var rotateDeny = CredentialsRotationGate.DenyIfRequired(principal);
+                if (rotateDeny is not null)
+                {
+                    return rotateDeny;
+                }
             }
         }
 

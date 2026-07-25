@@ -1,6 +1,6 @@
 # ADR 007: Auth Adapter Modules
 
-**Status:** Accepted (amended: modules issue/forward login JWTs + own refresh; Kithara verifies via JWKS + owns user DB and join secrets; Kithara mints JWTs only for **ephemeral guest users**; auth capabilities include `seedAdmin`; force credential rotation for seeded admins.)
+**Status:** Accepted (amended: modules issue/forward login JWTs + own refresh; Kithara verifies via JWKS + owns user DB and join secrets; Kithara mints JWTs only for **ephemeral guest users**; auth capabilities include `seedAdmin`; binding create/update via `UpdateUserBinding` / `bind_form`; force credential rotation for seeded admins with host control gate).
 
 ## Context
 
@@ -12,9 +12,10 @@ Auth must be modular (login+password, OIDC, passkeys, custom) without forcing a 
 - **Ephemeral guest users:** On protected-control guest-code exchange, Kithara creates a **new ephemeral guest user** per joiner, mints access (+ refresh) JWTs for that user, and destroys those users when the Struna is deleted. Rotating the guest code **blocks new joins only**. Not an auth-module account; still a `User` row for ACL / search cache. See [struna-access](../domains/struna-access.md).
 - **No built-in auth provider.** Every login method is a separate auth-adapter container on gRPC.
 - **Named adapters:** **Bes** (password, MVP), **Argus** (OIDC, v0.2), **Hecate** (passkeys, future). Modules are independent — no cross-module “modes.”
-- **Unified adapter contract:** `GetProviders` + `Authenticate` + `Refresh` + optional `SeedAdmin`. No protocol-specific RPCs. Opaque payloads for forms, callbacks, ceremonies.
+- **Unified adapter contract:** `GetProviders` + `Authenticate` + `Refresh` + `UpdateUserBinding` + optional `SeedAdminBinding`. No protocol-specific RPCs. Opaque payloads for forms, callbacks, ceremonies. Authenticate is login-only — binding mutation uses `UpdateUserBinding` / `bind_form`.
 - **Capabilities** at Module Registry `Register` (e.g. `seedAdmin`). Bes advertises it; Argus typically does not.
-- **`SeedAdmin`:** Kithara asks a capable module to create an admin with a random secret; module returns welcome text; Kithara logs it. Seeded admins get `must_rotate_credentials`. Privileged RPC — only Kithara may call it (channel auth).
+- **`SeedAdminBinding`:** Kithara invents DEFAULT_ADMIN, asks a capable module for a pre-filled binding + welcome text; Kithara logs it. Seeded admins get `must_rotate_credentials` and must clear it via `UpdateUserBinding` before control. Privileged RPC — only Kithara may call it (channel auth).
+- **Discovery schemas:** `login_form` → Authenticate; optional `bind_form` → UpdateUserBinding (ceremony bind | update).
 - **Unified credential protocol for login: JWT.** Modules return `access_token` (JWT) + `refresh_token`. **Argus** forwards OIDC tokens; **Bes** / **Hecate** mint their own. Kithara verifies login JWTs locally (module/IdP JWKS).
 - **User core + `UserAuthBinding`** live only in Kithara. Kinds: durable, managed, ephemeral guest — see [glossary](../glossary.md).
 - **Client modules** register via the same Module Registry gRPC as source/auth ([grpc-module-registry](../interfaces/grpc-module-registry.md)), declaring **user-aware** or **static**.

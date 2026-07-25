@@ -5,8 +5,9 @@ using Grpc.Core;
 namespace Bardie.Module.Auth;
 
 /// <summary>
-/// Thin AuthAdapter base: health, provider-id matching, denied helper, default SeedAdmin Unimplemented.
-/// Concrete Authenticate / GetProviders / SeedAdmin stay in the module.
+/// Thin AuthAdapter base: health, provider-id matching, denied helper,
+/// default SeedAdminBinding / UpdateUserBinding → Unimplemented.
+/// Concrete Authenticate / GetProviders / binding RPCs stay in the module.
 /// </summary>
 public abstract class AuthAdapterModuleBase : AuthAdapter.AuthAdapterBase
 {
@@ -33,6 +34,15 @@ public abstract class AuthAdapterModuleBase : AuthAdapter.AuthAdapterBase
         TokenType = "Bearer",
     };
 
-    public override Task<SeedAdminResponse> SeedAdmin(SeedAdminRequest request, ServerCallContext context) =>
-        throw new RpcException(new Status(StatusCode.Unimplemented, "SeedAdmin is not supported by this auth module."));
+    public override Task<UpdateUserBindingResponse> UpdateUserBinding(
+        UpdateUserBindingRequest request,
+        ServerCallContext context) =>
+        throw new RpcException(
+            new Status(StatusCode.Unimplemented, "UpdateUserBinding is not supported by this auth module."));
+
+    public override Task<SeedAdminBindingResponse> SeedAdminBinding(
+        SeedAdminBindingRequest request,
+        ServerCallContext context) =>
+        throw new RpcException(
+            new Status(StatusCode.Unimplemented, "SeedAdminBinding is not supported by this auth module."));
 }

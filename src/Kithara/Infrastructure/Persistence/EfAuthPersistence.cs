@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 using Bardie.Harness.Auth.Ports;
 using Kithara.Infrastructure.Persistence.Entities;
@@ -25,6 +24,24 @@ public sealed class EfAuthPersistence : IAuthPersistence
     {
         await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
         return await db.Users.CountAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<Guid> CreateDurableUserAsync(
+        bool mustRotateCredentials,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Kind = UserKind.Durable,
+            CreatedAt = DateTimeOffset.UtcNow,
+            Status = "active",
+            MustRotateCredentials = mustRotateCredentials,
+        };
+        db.Users.Add(user);
+        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return user.Id;
     }
 
     public async Task<AuthBindingRecord?> FindBindingBySubjectAsync(
@@ -54,13 +71,51 @@ public sealed class EfAuthPersistence : IAuthPersistence
             binding.User.MustRotateCredentials);
     }
 
+    public async Task<AuthBindingRecord?> FindBindingByUserAsync(
+        Guid userId,
+        string providerSlug,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        var binding = await db.UserAuthBindings
+            .AsNoTracking()
+            .Include(b => b.User)
+            .FirstOrDefaultAsync(
+                b => b.UserId == userId && b.ProviderSlug == providerSlug,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (binding is null)
+        {
+            return null;
+        }
+
+        return new AuthBindingRecord(
+            binding.UserId,
+            binding.ProviderSlug,
+            binding.ExternalSubject ?? string.Empty,
+            binding.PayloadJson,
+            binding.User.MustRotateCredentials);
+    }
+
     public async Task<Guid> EnsureUserWithBindingAsync(
         EnsureUserBindingRequest request,
         CancellationToken cancellationToken = default)
     {
         await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        var binding = await db.UserAuthBindings
+        UserAuthBinding? binding = null;
+        if (request.UserId is { } explicitUserId)
+        {
+            binding = await db.UserAuthBindings
+                .Include(b => b.User)
+                .FirstOrDefaultAsync(
+                    b => b.UserId == explicitUserId && b.ProviderSlug == request.ProviderSlug,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        binding ??= await db.UserAuthBindings
             .Include(b => b.User)
             .FirstOrDefaultAsync(
                 b => b.ProviderSlug == request.ProviderSlug
@@ -73,7 +128,8 @@ public sealed class EfAuthPersistence : IAuthPersistence
             binding.PayloadJson = string.IsNullOrWhiteSpace(request.PayloadJson)
                 ? binding.PayloadJson
                 : request.PayloadJson;
-            // Sync rotate flag from adapter (SeedAdmin escalates; password-change clears — AUTH-ROT-001).
+            binding.ExternalSubject = request.ExternalSubject;
+            // Sync rotate flag from adapter (SeedAdminBinding escalates; UpdateUserBinding clears).
             binding.User.MustRotateCredentials = request.MustRotateCredentials;
 
             if (request.Roles is { Count: > 0 })
@@ -85,14 +141,26 @@ public sealed class EfAuthPersistence : IAuthPersistence
             return binding.UserId;
         }
 
-        var user = new User
+        User user;
+        if (request.UserId is { } existingId)
         {
-            Id = Guid.NewGuid(),
-            Kind = UserKind.Durable,
-            CreatedAt = DateTimeOffset.UtcNow,
-            Status = "active",
-            MustRotateCredentials = request.MustRotateCredentials,
-        };
+            user = await db.Users.FirstOrDefaultAsync(u => u.Id == existingId, cancellationToken)
+                .ConfigureAwait(false)
+                ?? throw new InvalidOperationException($"User '{existingId}' was not found.");
+            user.MustRotateCredentials = request.MustRotateCredentials;
+        }
+        else
+        {
+            user = new User
+            {
+                Id = Guid.NewGuid(),
+                Kind = UserKind.Durable,
+                CreatedAt = DateTimeOffset.UtcNow,
+                Status = "active",
+                MustRotateCredentials = request.MustRotateCredentials,
+            };
+            db.Users.Add(user);
+        }
 
         var payloadJson = string.IsNullOrWhiteSpace(request.PayloadJson) ? "{}" : request.PayloadJson;
         if (request.Roles is { Count: > 0 })
@@ -100,7 +168,6 @@ public sealed class EfAuthPersistence : IAuthPersistence
             payloadJson = BindingPayloadJson.MergeRoles(payloadJson, request.Roles);
         }
 
-        db.Users.Add(user);
         db.UserAuthBindings.Add(new UserAuthBinding
         {
             UserId = user.Id,
@@ -161,5 +228,22 @@ public sealed class EfAuthPersistence : IAuthPersistence
             user.MustRotateCredentials,
             user.GuestStrunaId,
             user.ManagedByModuleSlug);
+    }
+
+    public async Task SetMustRotateAsync(
+        Guid userId,
+        bool mustRotateCredentials,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken)
+            .ConfigureAwait(false);
+        if (user is null)
+        {
+            return;
+        }
+
+        user.MustRotateCredentials = mustRotateCredentials;
+        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 }

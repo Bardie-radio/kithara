@@ -37,16 +37,27 @@ public class AuthHarnessScaffoldTests
         public Task<int> CountUsersAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(0);
 
+        public Task<Guid> CreateDurableUserAsync(
+            bool mustRotateCredentials,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Guid.NewGuid());
+
         public Task<AuthBindingRecord?> FindBindingBySubjectAsync(
             string providerSlug,
             string externalSubject,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<AuthBindingRecord?>(null);
 
+        public Task<AuthBindingRecord?> FindBindingByUserAsync(
+            Guid userId,
+            string providerSlug,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<AuthBindingRecord?>(null);
+
         public Task<Guid> EnsureUserWithBindingAsync(
             EnsureUserBindingRequest request,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(Guid.NewGuid());
+            Task.FromResult(request.UserId ?? Guid.NewGuid());
 
         public Task<AuthUserRecord?> FindUserByBindingSubjectAsync(
             string providerSlug,
@@ -58,5 +69,11 @@ public class AuthHarnessScaffoldTests
             Guid userId,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<AuthUserRecord?>(null);
+
+        public Task SetMustRotateAsync(
+            Guid userId,
+            bool mustRotateCredentials,
+            CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
     }
 }

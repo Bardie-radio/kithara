@@ -38,7 +38,7 @@ public class AuthAdapterModuleBaseTests
     }
 
     [Fact]
-    public void AuthBag_builds_form_schema_from_manifest()
+    public void AuthBag_builds_login_form_from_manifest()
     {
         var manifest = ModuleManifestLoader.LoadFromJson("""
             {
@@ -46,31 +46,49 @@ public class AuthAdapterModuleBaseTests
               "kind": "auth",
               "capabilities": [],
               "auth": {
-                "formFields": [
+                "loginFormFields": [
                   { "name": "username", "label": "Username", "inputType": "text", "required": true },
                   { "name": "password", "label": "Password", "inputType": "password", "required": true }
+                ],
+                "bindFormFields": [
+                  { "name": "password", "label": "Current password", "inputType": "password", "required": true },
+                  { "name": "new_password", "label": "New password", "inputType": "password", "required": false }
                 ]
               }
             }
             """);
 
-        var schema = ModuleManifestAuthBag.TryBuildFormSchema(manifest);
-        Assert.NotNull(schema);
-        Assert.Equal(2, schema!.Fields.Count);
-        Assert.Equal("username", schema.Fields[0].Name);
-        Assert.Equal("text", schema.Fields[0].InputType);
-        Assert.True(schema.Fields[0].Required);
-        Assert.Equal("password", schema.Fields[1].Name);
-        Assert.Equal("password", schema.Fields[1].InputType);
-        Assert.True(schema.Fields[1].Required);
+        var login = ModuleManifestAuthBag.TryBuildLoginForm(manifest);
+        Assert.NotNull(login);
+        Assert.Equal(2, login!.Fields.Count);
+        Assert.Equal("username", login.Fields[0].Name);
+        Assert.Equal("text", login.Fields[0].InputType);
+        Assert.True(login.Fields[0].Required);
+        Assert.Equal("password", login.Fields[1].Name);
+        Assert.Equal("password", login.Fields[1].InputType);
+        Assert.True(login.Fields[1].Required);
+
+        var bind = ModuleManifestAuthBag.TryBuildBindForm(manifest);
+        Assert.NotNull(bind);
+        Assert.Equal(2, bind!.Fields.Count);
+        Assert.Equal("new_password", bind.Fields[1].Name);
     }
 
     [Fact]
-    public async Task SeedAdmin_default_is_unimplemented()
+    public async Task SeedAdminBinding_default_is_unimplemented()
     {
         var adapter = new StubAdapter(new ModuleManifest { Slug = "bes", Kind = "auth" });
         var ex = await Assert.ThrowsAsync<RpcException>(
-            () => adapter.SeedAdmin(new SeedAdminRequest(), context: null!));
+            () => adapter.SeedAdminBinding(new SeedAdminBindingRequest(), context: null!));
+        Assert.Equal(StatusCode.Unimplemented, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateUserBinding_default_is_unimplemented()
+    {
+        var adapter = new StubAdapter(new ModuleManifest { Slug = "bes", Kind = "auth" });
+        var ex = await Assert.ThrowsAsync<RpcException>(
+            () => adapter.UpdateUserBinding(new UpdateUserBindingRequest(), context: null!));
         Assert.Equal(StatusCode.Unimplemented, ex.StatusCode);
     }
 

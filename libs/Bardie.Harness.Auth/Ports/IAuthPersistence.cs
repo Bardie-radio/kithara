@@ -9,14 +9,26 @@ public interface IAuthPersistence
 
     Task<int> CountUsersAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Creates a durable user row with no bindings yet. Returns the new user id.</summary>
+    Task<Guid> CreateDurableUserAsync(
+        bool mustRotateCredentials,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Looks up a binding by provider slug + external subject (e.g. username).</summary>
     Task<AuthBindingRecord?> FindBindingBySubjectAsync(
         string providerSlug,
         string externalSubject,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Looks up a binding by user id + provider slug.</summary>
+    Task<AuthBindingRecord?> FindBindingByUserAsync(
+        Guid userId,
+        string providerSlug,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Creates or updates a durable user + binding. Returns the user id.
+    /// When <see cref="EnsureUserBindingRequest.UserId"/> is set, attaches/updates that user.
     /// </summary>
     Task<Guid> EnsureUserWithBindingAsync(
         EnsureUserBindingRequest request,
@@ -30,6 +42,12 @@ public interface IAuthPersistence
 
     /// <summary>Resolves any user row by id (login subjects and ephemeral guests).</summary>
     Task<AuthUserRecord?> FindUserByIdAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Sets <c>MustRotateCredentials</c> on an existing user.</summary>
+    Task SetMustRotateAsync(
+        Guid userId,
+        bool mustRotateCredentials,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record AuthBindingRecord(
@@ -52,4 +70,5 @@ public sealed record EnsureUserBindingRequest(
     string ExternalSubject,
     string PayloadJson,
     bool MustRotateCredentials,
-    IReadOnlyList<string>? Roles = null);
+    IReadOnlyList<string>? Roles = null,
+    Guid? UserId = null);

@@ -89,7 +89,7 @@ Other hosts can reuse the same join RPC + ModuleChannel and map their own kind s
 | Direction | When |
 |-----------|------|
 | **Module → Kithara** | `Register`, `Heartbeat`, storage put/get |
-| **Kithara → module** | Each work RPC (`Search`, `StartTrack`, `Authenticate`, `SeedAdmin`, …) as a **fresh dial** to `grpc_advertise_address` |
+| **Kithara → module** | Each work RPC (`Search`, `StartTrack`, `Authenticate`, `UpdateUserBinding`, `SeedAdminBinding`, …) as a **fresh dial** to `grpc_advertise_address` |
 
 Per-call dials keep operations atomic: one RPC = one span, one auth decision, easier timeouts and least-privilege checks. No long-lived command stream from module to Kithara for work.
 

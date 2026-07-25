@@ -27,12 +27,17 @@ See [auth.md](auth.md).
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/auth/discovery` | Aggregated auth providers |
-| POST | `/api/auth/authenticate` | Opaque login → module JWT + refresh |
+| GET | `/api/auth/discovery` | Aggregated auth providers (`login_form` / `redirect` + optional `bind_form`) |
+| POST | `/api/auth/authenticate` | `login_form` bag → module JWT + refresh |
 | POST | `/api/auth/refresh` | Refresh → new JWT (module **or** host guest path — see below) |
 | GET/POST | `/api/auth/callback` | Browser return for redirect flows (forwarded to module) |
+| POST | `/api/auth/register` | Admin: create `User` → `UpdateUserBinding` ceremony `bind` |
+| POST | `/api/auth/bindings/{provider}` | Self: `UpdateUserBinding` (`bind` / `update`) — clears must-rotate when module says so |
+| GET | `/api/auth/me` | Current principal (includes `must_rotate_credentials`) |
 
 Kithara verifies **login** JWTs via module JWKS; it does not mint them. It **does** mint JWTs for **ephemeral guest users** (see below).
+
+While `must_rotate_credentials` is set, control mutations (create / play / queue / skip / grants, …) return `403` with `credentials_rotation_required`. Binding update stays allowed.
 
 **Guest refresh (GUEST-REF-001):** before dialing an auth module, `POST /api/auth/refresh` detects Kithara guest material (e.g. claim `bardie_provider=kithara.guest`), validates the refresh locally, and remints access (+ refresh) until the Struna still exists / capped lifetime. Login refresh still routes to the adapter.
 

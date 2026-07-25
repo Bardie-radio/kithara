@@ -8,13 +8,17 @@ option csharp_namespace = "Bardie.Auth.V1";
 // v0.1 draft: RPC set and dial rules are frozen; see docs/architecture/interfaces/grpc-auth-adapter.md
 // Join is via ModuleRegistry — Register is not on this service.
 // User + binding persistence goes through Kithara — adapters do not open a DB.
+// Authenticate is login-only; binding create/update uses UpdateUserBinding (+ SeedAdminBinding for bootstrap).
 
 service AuthAdapter {
   rpc Health(HealthRequest) returns (HealthResponse);
   rpc GetProviders(GetProvidersRequest) returns (GetProvidersResponse);
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse);
   rpc Refresh(RefreshRequest) returns (RefreshResponse);
-  rpc SeedAdmin(SeedAdminRequest) returns (SeedAdminResponse);
+  // Create or replace a user↔provider binding (register, forced rotate, self update).
+  rpc UpdateUserBinding(UpdateUserBindingRequest) returns (UpdateUserBindingResponse);
+  // Host-invented DEFAULT_ADMIN user → module returns pre-filled binding + welcome log text.
+  rpc SeedAdminBinding(SeedAdminBindingRequest) returns (SeedAdminBindingResponse);
 }
 
 message HealthRequest {}
@@ -30,16 +34,20 @@ message GetProvidersResponse {
 }
 
 message ProviderDescriptor {
-  // Opaque routing handle for Authenticate/Refresh. Clients must NOT branch UI on this
-  // (no if id == "bes"). Presentation is entirely in `ui` below.
+  // Opaque routing handle for Authenticate/Refresh/UpdateUserBinding. Clients must NOT branch UI on this
+  // (no if id == "bes"). Presentation is entirely in `ui` / `bind_form` below.
   string id = 1;
   string display_name = 2;
-  // Self-describing UI: clients switch on the oneof case only.
+  // Self-describing login UI: clients switch on the oneof case only.
   oneof ui {
-    FormSchemaUi form_schema = 10;
+    // Login bag → Authenticate. Separate from binding.
+    FormSchemaUi login_form = 10;
     RedirectUi redirect = 11;
     // CeremonyUi (WebAuthn / passkeys) reserved for later — still not module-name branching.
   }
+  // Optional binding bag → UpdateUserBinding for both initial bind and later update.
+  // Presence gates register / account-settings / must-rotate UI. Bind vs update = RPC ceremony.
+  FormSchemaUi bind_form = 20;
 }
 
 message FormSchemaUi {
@@ -47,7 +55,7 @@ message FormSchemaUi {
 }
 
 message FormField {
-  // Key written into AuthenticateRequest.payload.
+  // Key written into AuthenticateRequest.payload or UpdateUserBindingRequest.payload.
   string name = 1;
   string label = 2;
   // text | password | email | …
@@ -62,7 +70,7 @@ message RedirectUi {
 
 message AuthenticateRequest {
   string provider_id = 1;
-  // Credentials, callback params, ceremony data, …
+  // Credentials / callback params from login_form (or redirect callback) — never binding mutation.
   map<string, string> payload = 2;
   // Kithara-loaded binding for this subject (empty = no prior binding).
   bytes existing_binding_payload = 3;
@@ -97,19 +105,51 @@ message RefreshResponse {
   string token_type = 5;
 }
 
-message SeedAdminRequest {
-  // Optional operator/correlation hint (not secrets).
-  string correlation_id = 1;
+// bind = first binding for user↔provider; update = replace existing binding (incl. forced rotate).
+enum BindingCeremony {
+  BINDING_CEREMONY_UNSPECIFIED = 0;
+  BINDING_CEREMONY_BIND = 1;
+  BINDING_CEREMONY_UPDATE = 2;
 }
 
-message SeedAdminResponse {
+message UpdateUserBindingRequest {
+  string provider_id = 1;
+  // Kithara-owned user id (host invents the User row before calling).
+  string user_id = 2;
+  // Empty on first bind; prior payload on update.
+  bytes existing_binding_payload = 3;
+  // Opaque bag from discovery bind_form.
+  map<string, string> payload = 4;
+  BindingCeremony ceremony = 5;
+}
+
+message UpdateUserBindingResponse {
+  bool ok = 1;
+  bytes binding_payload = 2;
+  string external_subject = 3;
+  bool must_rotate_credentials = 4;
+  repeated string roles = 5;
+  map<string, string> entities = 6;
+  // Safe for clients when ok=false (e.g. password too short). Never include secrets.
+  string error = 7;
+}
+
+message SeedAdminBindingRequest {
+  // Kithara-created user id for DEFAULT_ADMIN.
+  string user_id = 1;
+  // Host-chosen unique login id (e.g. "admin").
+  string username = 2;
+  // Optional operator/correlation hint (not secrets).
+  string correlation_id = 3;
+}
+
+message SeedAdminBindingResponse {
   bool created = 1;
   // Includes one-time credentials; Kithara logs only — never expose on public HTTP.
   string welcome_log_text = 2;
   string external_subject = 3;
   bytes binding_payload = 4;
-  bool ensure_user = 5;
-  bool must_rotate_credentials = 6;
-  repeated string roles = 7;
-  map<string, string> entities = 8;
+  bool must_rotate_credentials = 5;
+  repeated string roles = 6;
+  map<string, string> entities = 7;
 }

@@ -13,11 +13,37 @@ public static class ModuleManifestAuthBag
     public const string ExtensionKey = "auth";
 
     /// <summary>
-    /// Builds a <see cref="FormSchemaUi"/> from <c>auth.formFields</c>, or <c>null</c> when absent.
+    /// Builds login <see cref="FormSchemaUi"/> from <c>auth.loginFormFields</c>
+    /// (fallback: legacy <c>auth.formFields</c>), or <c>null</c> when absent.
     /// </summary>
-    public static FormSchemaUi? TryBuildFormSchema(ModuleManifest manifest)
+    public static FormSchemaUi? TryBuildLoginForm(ModuleManifest manifest) =>
+        TryBuildSchema(manifest, "loginFormFields", "login_form_fields", "formFields", "form_fields");
+
+    /// <summary>
+    /// Builds bind <see cref="FormSchemaUi"/> from <c>auth.bindFormFields</c>, or <c>null</c> when absent.
+    /// </summary>
+    public static FormSchemaUi? TryBuildBindForm(ModuleManifest manifest) =>
+        TryBuildSchema(manifest, "bindFormFields", "bind_form_fields");
+
+    /// <summary>Legacy alias — prefer <see cref="TryBuildLoginForm"/>.</summary>
+    public static FormSchemaUi? TryBuildFormSchema(ModuleManifest manifest) =>
+        TryBuildLoginForm(manifest);
+
+    /// <summary>Reads login form fields (including legacy <c>formFields</c>). Empty when absent.</summary>
+    public static IReadOnlyList<FormField> ReadLoginFormFields(ModuleManifest manifest) =>
+        ReadFormFields(manifest, "loginFormFields", "login_form_fields", "formFields", "form_fields");
+
+    /// <summary>Reads bind form fields. Empty when absent.</summary>
+    public static IReadOnlyList<FormField> ReadBindFormFields(ModuleManifest manifest) =>
+        ReadFormFields(manifest, "bindFormFields", "bind_form_fields");
+
+    /// <summary>Legacy alias — prefer <see cref="ReadLoginFormFields"/>.</summary>
+    public static IReadOnlyList<FormField> ReadFormFields(ModuleManifest manifest) =>
+        ReadLoginFormFields(manifest);
+
+    private static FormSchemaUi? TryBuildSchema(ModuleManifest manifest, params string[] propertyNames)
     {
-        var fields = ReadFormFields(manifest);
+        var fields = ReadFormFields(manifest, propertyNames);
         if (fields.Count == 0)
         {
             return null;
@@ -32,10 +58,9 @@ public static class ModuleManifestAuthBag
         return schema;
     }
 
-    /// <summary>
-    /// Reads <c>auth.formFields</c> from the manifest. Empty when absent or malformed.
-    /// </summary>
-    public static IReadOnlyList<FormField> ReadFormFields(ModuleManifest manifest)
+    private static IReadOnlyList<FormField> ReadFormFields(
+        ModuleManifest manifest,
+        params string[] propertyNames)
     {
         ArgumentNullException.ThrowIfNull(manifest);
 
@@ -46,13 +71,18 @@ public static class ModuleManifestAuthBag
             return [];
         }
 
-        if (!authElement.TryGetProperty("formFields", out var fieldsElement)
-            && !authElement.TryGetProperty("form_fields", out fieldsElement))
+        JsonElement fieldsElement = default;
+        var found = false;
+        foreach (var name in propertyNames)
         {
-            return [];
+            if (authElement.TryGetProperty(name, out fieldsElement))
+            {
+                found = true;
+                break;
+            }
         }
 
-        if (fieldsElement.ValueKind != JsonValueKind.Array)
+        if (!found || fieldsElement.ValueKind != JsonValueKind.Array)
         {
             return [];
         }

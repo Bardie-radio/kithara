@@ -9,7 +9,7 @@ Depends on [`Bardie.Contracts`](../Bardie.Contracts/README.md) + [`Bardie.Module
 ## What it owns
 
 - Auth module catalog (slug, JWKS, capabilities)
-- Discovery merge (`GetProviders`), route `Authenticate` / `Refresh` / `SeedAdmin`
+- Discovery merge (`GetProviders`), route `Authenticate` / `Refresh` / `UpdateUserBinding` / `SeedAdminBinding`
 - Host port `IAuthPersistence` for user + binding persistence
 - Dials modules via Module.Channel mTLS helpers
 

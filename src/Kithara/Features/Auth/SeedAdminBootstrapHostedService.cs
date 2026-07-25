@@ -6,7 +6,8 @@ using Microsoft.Extensions.Logging;
 namespace Kithara.Features.Auth;
 
 /// <summary>
-/// When the user DB is empty, waits for an auth module advertising <c>seedAdmin</c> and bootstraps an admin.
+/// When the user DB is empty, waits for an auth module advertising <c>seedAdmin</c>,
+/// invents DEFAULT_ADMIN, and calls <c>SeedAdminBinding</c>.
 /// Welcome text is logged to the Kithara container log only — never on public HTTP.
 /// </summary>
 public sealed class SeedAdminBootstrapHostedService : BackgroundService
@@ -42,7 +43,7 @@ public sealed class SeedAdminBootstrapHostedService : BackgroundService
             {
                 if (await _harness.Persistence.HasAnyUsersAsync(stoppingToken).ConfigureAwait(false))
                 {
-                    _logger.LogDebug("User DB is not empty; seedAdmin bootstrap skipped.");
+                    _logger.LogDebug("User DB is not empty; SeedAdminBinding bootstrap skipped.");
                     return;
                 }
 
@@ -59,7 +60,7 @@ public sealed class SeedAdminBootstrapHostedService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "seedAdmin bootstrap attempt {Attempt} failed.", attempt);
+                _logger.LogWarning(ex, "SeedAdminBinding bootstrap attempt {Attempt} failed.", attempt);
             }
 
             try
@@ -72,14 +73,14 @@ public sealed class SeedAdminBootstrapHostedService : BackgroundService
             }
         }
 
-        _logger.LogWarning("seedAdmin bootstrap gave up after {Attempts} attempts (no capable module or empty DB still).", attempt);
+        _logger.LogWarning("SeedAdminBinding bootstrap gave up after {Attempts} attempts (no capable module or empty DB still).", attempt);
     }
 
     private void LogWelcome(SeedAdminResult result)
     {
         // Single conspicuous log line — operators scrape container logs for one-time credentials.
         _logger.LogWarning(
-            "BOOTSTRAP ADMIN (seedAdmin): user={Subject} id={UserId}. Credentials (log only — rotate on first login): {Welcome}",
+            "BOOTSTRAP ADMIN (SeedAdminBinding): user={Subject} id={UserId}. Credentials (log only — rotate via bind_form): {Welcome}",
             result.ExternalSubject,
             result.UserId,
             result.WelcomeLogText);

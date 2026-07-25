@@ -13,7 +13,7 @@ public sealed class ModuleRegistryService : ModuleRegistry.ModuleRegistryBase
         _operations = operations;
     }
 
-    public override Task<RegisterResponse> Register(RegisterRequest request, ServerCallContext context)
+    public override async Task<RegisterResponse> Register(RegisterRequest request, ServerCallContext context)
     {
         string? presentedSlug = null;
         if (context.UserState.TryGetValue(ModuleChannelBootstrapInterceptor.ModuleSlugUserStateKey, out var presented)
@@ -22,7 +22,9 @@ public sealed class ModuleRegistryService : ModuleRegistry.ModuleRegistryBase
             presentedSlug = slug;
         }
 
-        return Task.FromResult(_operations.Register(request, presentedSlug));
+        return await _operations
+            .RegisterAsync(request, presentedSlug, context.CancellationToken)
+            .ConfigureAwait(false);
     }
 
     public override Task<HeartbeatResponse> Heartbeat(HeartbeatRequest request, ServerCallContext context)

@@ -6,8 +6,8 @@ Auth modules plug into Kithara’s **Auth Harness** over one shared gRPC contrac
 
 | Layer | Owns |
 |-------|------|
-| **Auth module** (Bes, Argus, Hecate, …) | Authenticate/verify; **issue or forward login JWTs**; **refresh** (Argus → IdP; others mint their own); return allow + rights/entities; optional “store this user/binding”; optional **`SeedAdmin`** when capability advertised |
-| **Kithara** | Sole user DB; **verify** login JWTs via module JWKS; **mint/verify ephemeral guest JWTs**; listen/guest secrets; **join secrets**; merge discovery; route opaque auth/refresh; orchestrate `seedAdmin` |
+| **Auth module** (Bes, Argus, Hecate, …) | **`login_form` → Authenticate** (issue/forward JWTs + refresh); **`bind_form` → UpdateUserBinding** (bind + update ceremonies); optional **`SeedAdminBinding`** when `seedAdmin` advertised |
+| **Kithara** | Sole `User` rows (`/register`, seed); **verify** login JWTs via module JWKS; **mint/verify ephemeral guest JWTs**; listen/guest secrets; **join secrets**; merge discovery; route opaque bags; **MustRotate control gate**; orchestrate `seedAdmin` |
 
 Everything user-facing for **login** uses the **same JWT protocol** from auth modules. Argus typically **passes through** OIDC tokens; Bes/Hecate **forge** their own JWTs. Kithara does not mint login access tokens — it mints JWTs only for **ephemeral guest users** after guest-code exchange.
 
@@ -16,7 +16,7 @@ Everything user-facing for **login** uses the **same JWT protocol** from auth mo
 flowchart TB
   Client -->|discovery / authenticate / refresh| Kithara
   Kithara --> DB[(User + UserAuthBinding)]
-  Kithara -->|"GetProviders / Authenticate / Refresh / SeedAdmin"| AuthBox
+  Kithara -->|"GetProviders / Authenticate / Refresh / UpdateUserBinding / SeedAdminBinding"| AuthBox
   subgraph AuthBox [Auth adapters — shared gRPC]
     Bes[Bes]
     Argus[Argus]
@@ -29,7 +29,7 @@ flowchart TB
 
 | Provider | Shape | Role |
 |----------|-------|------|
-| **Bes** (MVP) | Container `bes` | Login+password; mints JWT; discovery `form_schema` — deep dive: [Bes docs](https://github.com/Bardie-radio/bes/tree/main/docs/architecture) |
+| **Bes** (MVP) | Container `bes` | Login+password; mints JWT; discovery `login_form` + `bind_form` — deep dive: [Bes docs](https://github.com/Bardie-radio/bes/tree/main/docs/architecture) |
 | **Argus** (v0.2) | Container `argus` | OIDC; forwards IdP JWT — [planned](https://github.com/Bardie-radio/argus/blob/main/docs/architecture/01-planned-role.md) |
 | **Hecate** (future) | Container `hecate` | Passkeys — [planned](https://github.com/Bardie-radio/hecate/blob/main/docs/architecture/01-planned-role.md) |
 
@@ -37,9 +37,10 @@ flowchart TB
 
 **User-facing surfaces** are Kithara (REST / callbacks) and UI client modules (Plume, Beak, Cauda, …). Auth adapters stay on the **internal** network.
 
-Clients render login UI from discovery by switching on `ProviderDescriptor.ui` (typed oneof) — **not** on provider/module name:
+Clients render login / binding UI from discovery by switching on `ProviderDescriptor.ui` / `bind_form` — **not** on provider/module name:
 
-- `form_schema` — client renders `FormField` list (MVP Bes)
+- `login_form` — client renders fields; POST → Authenticate (MVP Bes)
+- `bind_form` — same field bag for initial bind **and** later update (ceremony on the RPC); POST → host binding proxy → `UpdateUserBinding`
 - `redirect` — browser goes to `authorize_url`; returns to a **Kithara** callback
 - future ceremony case for passkeys — still mode-based, not `if hecate`
 
@@ -77,11 +78,11 @@ First successful login can JIT-provision a `User` + binding when the module asks
 
 User **kinds** (durable / managed / ephemeral guest) — [glossary](../glossary.md). Ephemeral guests have no `UserAuthBinding`.
 
-### First admin / empty DB (`seedAdmin`)
+### First admin / empty DB (`seedAdmin` → `SeedAdminBinding`)
 
-Auth modules **advertise capabilities** at Registry join. Modules that can invent local users (Bes) advertise `seedAdmin`. Modules that only reflect remote IdPs (Argus) typically do not.
+Auth modules **advertise capabilities** at Registry join. Modules that can invent local credentials (Bes) advertise `seedAdmin`. Modules that only reflect remote IdPs (Argus) typically do not.
 
-When the DB is empty, Kithara calls `SeedAdmin` on a capable adapter. The module creates an admin with a random secret, Kithara persists the user + binding, and Kithara logs the module’s welcome text (credentials) to the **Kithara container log**. Seeded admins must rotate credentials on first login (`must_rotate_credentials`). Privileged RPC — only Kithara may invoke it. Details: [grpc-auth-adapter](../interfaces/grpc-auth-adapter.md).
+When the DB is empty, Kithara creates a durable `User` (DEFAULT_ADMIN username) and calls `SeedAdminBinding` on a capable adapter. The module returns a binding payload + welcome text; Kithara persists the binding and logs the welcome text (one-time secret) to the **Kithara container log**. Seeded admins must rotate via `UpdateUserBinding` before control (`must_rotate_credentials`). Privileged RPC — only Kithara may invoke it. Details: [grpc-auth-adapter](../interfaces/grpc-auth-adapter.md).
 
 ## Account linking
 

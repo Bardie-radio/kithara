@@ -39,9 +39,14 @@ Each module ships one **`module.manifest.json`**. ModuleChannel loads **generic*
   "otelServiceName": "bardie.auth.bes",
   "capabilities": ["seedAdmin"],
   "auth": {
-    "formFields": [
+    "loginFormFields": [
       { "name": "username", "label": "Username", "inputType": "text", "required": true },
       { "name": "password", "label": "Password", "inputType": "password", "required": true }
+    ],
+    "bindFormFields": [
+      { "name": "username", "label": "Username", "inputType": "text", "required": true },
+      { "name": "password", "label": "Password", "inputType": "password", "required": true },
+      { "name": "new_password", "label": "New password", "inputType": "password", "required": false }
     ]
   }
 }
@@ -52,7 +57,7 @@ Each module ships one **`module.manifest.json`**. ModuleChannel loads **generic*
 | `slug`, `kind`, `capabilities` | Manifest (ModuleChannel) | Defaults for core `RegisterRequest` fields |
 | `otelServiceName`, `displayName` | Manifest (ModuleChannel) | OTel / ops |
 | `source.searchFields` | Manifest → `Bardie.Module.Source` customizer | Advertise on Register `details.source` |
-| `auth.formFields` | Manifest → module / `Bardie.Module.Auth` helper | `GetProviders` form schema (not Register) |
+| `auth.loginFormFields` / `auth.bindFormFields` | Manifest → module / `Bardie.Module.Auth` helper | `GetProviders` login + bind schemas (not Register). Legacy `auth.formFields` = login only |
 | Kind-specific runtime `oneof` (JWKS, permission ceiling) | **Module / host customizer** | e.g. JWKS from key material — not a static file |
 | Extra JSON keys | Opaque `Extensions` | Preserved for module-local parsing; ModuleChannel ignores them |
 | Join secret | **Env only** | Never in the manifest file |
@@ -68,7 +73,7 @@ Capabilities are **open strings** on the wire. ModuleChannel never interprets th
 | Put in `capabilities[]` | Keep elsewhere |
 |-------------------------|----------------|
 | Optional RPCs / behaviours that some modules of the same kind omit | `kind` (`source` / `auth` / `client`) |
-| Host routing gates (“may I call SeedAdmin / PauseTrack / Search fan-out?”) | Register `details.source.searchFields` — from manifest `source.searchFields` via module customizer |
+| Host routing gates (“may I call SeedAdminBinding / PauseTrack / Search fan-out?”) | Register `details.source.searchFields` — from manifest `source.searchFields` via module customizer |
 | | Register `details.auth` JWKS — runtime customizer |
 | | Register `details.client.authMode` + `permissionCeiling` — module customizer |
 
@@ -80,21 +85,21 @@ Capabilities are **open strings** on the wire. ModuleChannel never interprets th
 | **source** | `play` | Implements `StartTrack` / `StopTrack` (PCM to session FIFO) | Magpie, Starling, Catbird |
 | **source** | `pause` | Implements `PauseTrack` / `ResumeTrack` without tearing down the job | Magpie yes; **Starling omits** |
 | **source** | `prefetch` | Implements `PrefetchTrack` (warm blob cache; no FIFO write) | Magpie yes; Starling/Catbird typically omit |
-| **auth** | `seedAdmin` | Host may call `SeedAdmin` when user DB empty | **Bes yes**; Argus typically **no** |
+| **auth** | `seedAdmin` | Host may call `SeedAdminBinding` when user DB empty | **Bes yes**; Argus typically **no** |
 
 ### Auth — reserved (document now; advertise only when implemented)
 
 | Capability | Why useful |
 |------------|------------|
-| `selfRegister` | Open signup via Authenticate (Bes “register” form) without operator seed |
-| `passwordReset` | Host/UI can expose reset; module owns ceremony in the opaque `Authenticate` bag |
+| `selfRegister` | Open signup via `bind_form` → `UpdateUserBinding` ceremony `bind` without operator seed |
+| `passwordReset` | Host/UI can expose reset; module owns ceremony via `bind_form` later |
 
 **Not a module capability:** account linking stays **Kithara’s story** (explicit multi-provider link in the user DB / harness). Auth adapters only prove identity for their provider — they do not advertise `accountLink`.
 
 ### Do not put in `capabilities[]`
 
-- `authenticate` / `refresh` / `getProviders` / `health` — core auth/source contract; every well-known auth module must speak them
-- `form_schema` / `redirect` — discovery `ui_mode` on `GetProviders`, not Register caps
+- `authenticate` / `refresh` / `getProviders` / `health` / `updateUserBinding` — core auth contract; every well-known auth module must speak the first four (`UpdateUserBinding` / `SeedAdminBinding` when capable)
+- `login_form` / `bind_form` / `redirect` — discovery surfaces on `GetProviders`, not Register caps
 - Permission strings (`create_struna`, …) — **`client.permissionCeiling`** on Register (customizer)
 - Source type labels (`youtube`, `live`, `files`) — do not invent these as capabilities
 - `PrepareTrack` — out of MVP until the RPC exists

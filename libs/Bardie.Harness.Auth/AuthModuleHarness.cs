@@ -15,10 +15,14 @@ using Microsoft.Extensions.Logging;
 namespace Bardie.Harness.Auth;
 
 /// <summary>
-/// Auth module harness: merges discovery, routes Authenticate/Refresh/SeedAdmin, persists users via host port.
+/// Auth module harness: merges discovery, routes Authenticate/Refresh/UpdateUserBinding/SeedAdminBinding,
+/// persists users via host port.
 /// </summary>
 public sealed class AuthModuleHarness
 {
+    /// <summary>Host-chosen DEFAULT_ADMIN username for empty-DB bootstrap.</summary>
+    public const string DefaultAdminUsername = "admin";
+
     private readonly IAuthModuleCatalog _catalog;
     private readonly IAuthPersistence _persistence;
     private readonly IModuleGrpcChannelFactory _channelFactory;
@@ -275,6 +279,119 @@ public sealed class AuthModuleHarness
         }
     }
 
+    /// <summary>
+    /// Creates a durable user (or uses <paramref name="userId"/>) and calls module
+    /// <c>UpdateUserBinding</c> with ceremony bind/update.
+    /// </summary>
+    public async Task<UpdateUserBindingResult> UpdateUserBindingAsync(
+        string providerId,
+        Guid userId,
+        IReadOnlyDictionary<string, string> payload,
+        BindingCeremony ceremony,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerId);
+
+        var module = await ResolveModuleForProviderAsync(providerId, cancellationToken).ConfigureAwait(false);
+        if (module is null)
+        {
+            return new UpdateUserBindingResult(
+                false,
+                null,
+                null,
+                false,
+                $"Unknown provider '{providerId}'.");
+        }
+
+        var existing = await _persistence.FindBindingByUserAsync(userId, module.Slug, cancellationToken)
+            .ConfigureAwait(false);
+        byte[] existingBytes = existing is null
+            ? []
+            : Encoding.UTF8.GetBytes(existing.PayloadJson);
+
+        // Auto-pick ceremony when caller leaves unspecified.
+        if (ceremony == BindingCeremony.Unspecified)
+        {
+            ceremony = existing is null ? BindingCeremony.Bind : BindingCeremony.Update;
+        }
+
+        using var channel = CreateModuleChannel(module.GrpcAdvertiseAddress, module.Slug);
+        var client = new AuthAdapter.AuthAdapterClient(channel);
+        var request = new UpdateUserBindingRequest
+        {
+            ProviderId = providerId,
+            UserId = userId.ToString("D"),
+            ExistingBindingPayload = ByteString.CopyFrom(existingBytes),
+            Ceremony = ceremony,
+        };
+        foreach (var (key, value) in payload)
+        {
+            request.Payload[key] = value;
+        }
+
+        UpdateUserBindingResponse response;
+        try
+        {
+            response = await client.UpdateUserBindingAsync(request, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (RpcException ex)
+        {
+            _logger.LogWarning(ex, "UpdateUserBinding RPC failed for provider {Provider}", providerId);
+            return new UpdateUserBindingResult(false, userId, null, false, ex.Status.Detail);
+        }
+
+        if (!response.Ok)
+        {
+            var reason = string.IsNullOrWhiteSpace(response.Error)
+                ? "Binding update rejected."
+                : response.Error.Trim();
+            return new UpdateUserBindingResult(
+                false,
+                userId,
+                null,
+                false,
+                reason);
+        }
+
+        var externalSubject = string.IsNullOrWhiteSpace(response.ExternalSubject)
+            ? existing?.ExternalSubject
+            : response.ExternalSubject;
+        if (string.IsNullOrWhiteSpace(externalSubject))
+        {
+            return new UpdateUserBindingResult(
+                false,
+                userId,
+                null,
+                false,
+                "Binding update rejected: module returned no subject.");
+        }
+
+        var payloadJson = response.BindingPayload.IsEmpty
+            ? "{}"
+            : Encoding.UTF8.GetString(response.BindingPayload.Span);
+        await _persistence.EnsureUserWithBindingAsync(
+                new EnsureUserBindingRequest(
+                    module.Slug,
+                    externalSubject,
+                    payloadJson,
+                    response.MustRotateCredentials,
+                    response.Roles.ToArray(),
+                    userId),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return new UpdateUserBindingResult(
+            true,
+            userId,
+            externalSubject,
+            response.MustRotateCredentials,
+            null);
+    }
+
+    /// <summary>
+    /// Empty-DB bootstrap: invent DEFAULT_ADMIN user, call <c>SeedAdminBinding</c>, persist binding.
+    /// </summary>
     public async Task<SeedAdminResult?> TrySeedAdminAsync(CancellationToken cancellationToken = default)
     {
         if (await _persistence.HasAnyUsersAsync(cancellationToken).ConfigureAwait(false))
@@ -292,50 +409,59 @@ public sealed class AuthModuleHarness
             return null;
         }
 
+        // Re-check emptiness — another instance may have raced before we create.
+        if (await _persistence.HasAnyUsersAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        var userId = await _persistence.CreateDurableUserAsync(
+                mustRotateCredentials: true,
+                cancellationToken)
+            .ConfigureAwait(false);
+
         using var channel = CreateModuleChannel(module.GrpcAdvertiseAddress, module.Slug);
         var client = new AuthAdapter.AuthAdapterClient(channel);
 
-        SeedAdminResponse response;
+        SeedAdminBindingResponse response;
         try
         {
-            response = await client.SeedAdminAsync(
-                    new SeedAdminRequest { CorrelationId = Guid.NewGuid().ToString("N") },
+            response = await client.SeedAdminBindingAsync(
+                    new SeedAdminBindingRequest
+                    {
+                        UserId = userId.ToString("D"),
+                        Username = DefaultAdminUsername,
+                        CorrelationId = Guid.NewGuid().ToString("N"),
+                    },
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (RpcException ex)
         {
-            _logger.LogWarning(ex, "SeedAdmin RPC failed for module {Slug}", module.Slug);
+            _logger.LogWarning(ex, "SeedAdminBinding RPC failed for module {Slug}", module.Slug);
             return null;
         }
 
-        if (!response.Created || !response.EnsureUser || string.IsNullOrWhiteSpace(response.ExternalSubject))
+        if (!response.Created || string.IsNullOrWhiteSpace(response.ExternalSubject))
         {
             _logger.LogWarning(
-                "SeedAdmin from {Slug} did not create a user (created={Created}, ensure={Ensure}).",
+                "SeedAdminBinding from {Slug} did not create a binding (created={Created}).",
                 module.Slug,
-                response.Created,
-                response.EnsureUser);
-            return new SeedAdminResult(false, response.WelcomeLogText, null, response.ExternalSubject);
-        }
-
-        // Re-check emptiness — another instance may have raced.
-        if (await _persistence.HasAnyUsersAsync(cancellationToken).ConfigureAwait(false))
-        {
-            _logger.LogInformation("Users already exist after SeedAdmin race; skipping persist.");
-            return null;
+                response.Created);
+            return new SeedAdminResult(false, response.WelcomeLogText, userId, response.ExternalSubject);
         }
 
         var payloadJson = response.BindingPayload.IsEmpty
             ? "{}"
             : Encoding.UTF8.GetString(response.BindingPayload.Span);
-        var userId = await _persistence.EnsureUserWithBindingAsync(
+        await _persistence.EnsureUserWithBindingAsync(
                 new EnsureUserBindingRequest(
                     module.Slug,
                     response.ExternalSubject,
                     payloadJson,
                     response.MustRotateCredentials,
-                    response.Roles.ToArray()),
+                    response.Roles.ToArray(),
+                    userId),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -439,16 +565,17 @@ public sealed class AuthModuleHarness
     {
         var uiMode = provider.UiCase switch
         {
-            ProviderDescriptor.UiOneofCase.FormSchema => "form_schema",
+            ProviderDescriptor.UiOneofCase.LoginForm => "login_form",
             ProviderDescriptor.UiOneofCase.Redirect => "redirect",
             _ => "unknown",
         };
 
-        IReadOnlyList<FormFieldDescriptor> fields = [];
+        IReadOnlyList<FormFieldDescriptor> loginFields = [];
+        IReadOnlyList<FormFieldDescriptor> bindFields = [];
         string? authorizeUrl = null;
-        if (provider.FormSchema is not null)
+        if (provider.LoginForm is not null)
         {
-            fields = provider.FormSchema.Fields
+            loginFields = provider.LoginForm.Fields
                 .Select(f => new FormFieldDescriptor(f.Name, f.Label, f.InputType, f.Required))
                 .ToArray();
         }
@@ -457,12 +584,20 @@ public sealed class AuthModuleHarness
             authorizeUrl = provider.Redirect.AuthorizeUrl;
         }
 
+        if (provider.BindForm is not null)
+        {
+            bindFields = provider.BindForm.Fields
+                .Select(f => new FormFieldDescriptor(f.Name, f.Label, f.InputType, f.Required))
+                .ToArray();
+        }
+
         return new MergedProviderDescriptor(
             provider.Id,
             provider.DisplayName,
             moduleSlug,
             uiMode,
-            fields,
+            loginFields,
+            bindFields,
             authorizeUrl);
     }
 }
