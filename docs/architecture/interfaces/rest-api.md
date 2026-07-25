@@ -39,6 +39,7 @@ Kithara verifies **login** JWTs via module JWKS; it does not mint them. It **doe
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/streams/{id}/guest/exchange` | **Unauthenticated** bootstrap. Body: short guest code → create **ephemeral guest user** + Kithara-signed JWT (+ refresh) |
+| POST | `/api/streams/by-slug/{slug}/guest/exchange` | Same as above; slug for client UX (code stays out of the URL) |
 
 Rate-limit (GUEST-XCHG-001): fixed window per IP + Struna; failures → `429` (failure lockout polish → Phase 8). Each exchange creates a **new** ephemeral guest user for that joiner (Struna-scoped; destroyed with the Struna). Do not send the guest code on every request. Details: [struna-access](../domains/struna-access.md).
 

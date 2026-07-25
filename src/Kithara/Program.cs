@@ -46,11 +46,14 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("guest-exchange", httpContext =>
     {
         var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        var strunaId = httpContext.Request.RouteValues.TryGetValue("id", out var id)
+        // Partition by Struna id (GUID route) or slug (by-slug route).
+        var strunaKey = httpContext.Request.RouteValues.TryGetValue("id", out var id)
             ? id?.ToString() ?? string.Empty
-            : string.Empty;
+            : httpContext.Request.RouteValues.TryGetValue("slug", out var slug)
+                ? slug?.ToString() ?? string.Empty
+                : string.Empty;
         return RateLimitPartition.GetFixedWindowLimiter(
-            $"{ip}:{strunaId}",
+            $"{ip}:{strunaKey}",
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 10,

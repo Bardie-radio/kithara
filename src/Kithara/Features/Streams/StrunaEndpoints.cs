@@ -27,6 +27,8 @@ public static class StrunaEndpoints
         // Bootstrap is unauthenticated (guest code only); GUEST-XCHG-001 rate-limits per IP + Struna.
         root.MapPost("/{id:guid}/guest/exchange", GuestExchangeAsync)
             .RequireRateLimiting("guest-exchange");
+        root.MapPost("/by-slug/{slug}/guest/exchange", GuestExchangeBySlugAsync)
+            .RequireRateLimiting("guest-exchange");
 
         var group = root.MapGroup(string.Empty)
             .RequireAuthorization()
@@ -412,8 +414,42 @@ public static class StrunaEndpoints
             return Results.NotFound(new { error = "not_found" });
         }
 
-        var exchanged = await guests.ExchangeAsync(id, body.GuestCode ?? body.Code!, ct)
+        return await CompleteGuestExchangeAsync(id, body.GuestCode ?? body.Code!, guests, ct)
             .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Slug-based exchange for client UX (share <c>/control/{slug}</c>; code stays out of the URL).
+    /// </summary>
+    private static async Task<IResult> GuestExchangeBySlugAsync(
+        string slug,
+        [FromBody] GuestExchangeBody body,
+        Neck neck,
+        GuestJwtService guests,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(body.GuestCode ?? body.Code))
+        {
+            return Results.BadRequest(new { error = "guest_code is required." });
+        }
+
+        var struna = await neck.GetStrunaBySlugAsync(slug, ct).ConfigureAwait(false);
+        if (struna is null)
+        {
+            return Results.NotFound(new { error = "not_found" });
+        }
+
+        return await CompleteGuestExchangeAsync(struna.Id, body.GuestCode ?? body.Code!, guests, ct)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task<IResult> CompleteGuestExchangeAsync(
+        Guid strunaId,
+        string guestCode,
+        GuestJwtService guests,
+        CancellationToken ct)
+    {
+        var exchanged = await guests.ExchangeAsync(strunaId, guestCode, ct).ConfigureAwait(false);
         if (exchanged is null)
         {
             return Results.Json(new { error = "invalid_guest_code" }, statusCode: StatusCodes.Status401Unauthorized);
