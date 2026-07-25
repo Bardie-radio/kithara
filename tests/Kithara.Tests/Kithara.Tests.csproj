@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="Microsoft.Extensions.Options" />
@@ -27,6 +28,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Kithara\Kithara.csproj" />
     <ProjectReference Include="..\..\libs\Bardie.Module.Channel\Bardie.Module.Channel.csproj" />
+    <ProjectReference Include="..\..\libs\Bardie.Module.Auth\Bardie.Module.Auth.csproj" />
     <ProjectReference Include="..\..\libs\Bardie.Harness.Auth\Bardie.Harness.Auth.csproj" />
     <ProjectReference Include="..\..\libs\Bardie.Harness.Source\Bardie.Harness.Source.csproj" />
   </ItemGroup>

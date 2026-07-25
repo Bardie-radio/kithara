@@ -569,9 +569,12 @@ public sealed class AuthModuleHarness
     private Grpc.Net.Client.GrpcChannel CreateModuleChannel(string advertiseAddress, string moduleSlug)
     {
         var address = ModuleParticipantServiceCollectionExtensions.NormalizeGrpcAddress(advertiseAddress);
+
+        // When mTLS is off (tests), ModuleGrpcChannelFactory dials plain HTTP/2 without host certs.
+        // When mTLS is on and the store is unloaded, CreateChannel throws.
         if (!_certificateStore.IsLoaded)
         {
-            throw new InvalidOperationException("Host TLS material is not loaded.");
+            return _channelFactory.CreateChannel(address);
         }
 
         // Short-lived PEM copy for this dial; channel disposes it (never Export Kestrel's ServerCertificate).
