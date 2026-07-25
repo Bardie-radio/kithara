@@ -30,6 +30,10 @@ public static class StrunaEndpoints
         root.MapPost("/by-slug/{slug}/guest/exchange", GuestExchangeBySlugAsync)
             .RequireRateLimiting("guest-exchange");
 
+        // Open playback (public | hidden): no Bearer — shared player URL is enough.
+        root.MapGet("/by-slug/{slug}", GetOpenBySlugAsync);
+        root.MapGet("/by-slug/{slug}/now-playing", NowPlayingBySlugAsync);
+
         var group = root.MapGroup(string.Empty)
             .RequireAuthorization()
             .AddEndpointFilter<RequirePrincipalFilter>();
@@ -67,7 +71,7 @@ public static class StrunaEndpoints
     }
 
     private static Task<IResult> ListListenAsync(HttpContext http, Neck neck, CancellationToken ct) =>
-        ListFilteredAsync(http, neck, ct, (s, p) => StrunaAccess.CanListen(s, p.UserId));
+        ListFilteredAsync(http, neck, ct, StrunaAccess.AppearsOnListenList);
 
     private static Task<IResult> ListControlAsync(HttpContext http, Neck neck, CancellationToken ct) =>
         ListFilteredAsync(http, neck, ct, StrunaAccess.CanControl);
@@ -210,6 +214,39 @@ public static class StrunaEndpoints
         MapPlayResult(await neck.SkipAsync(id, ct).ConfigureAwait(false));
 
     private static async Task<IResult> NowPlayingAsync(
+        Guid id,
+        Neck neck,
+        TuneLibrary tunes,
+        CancellationToken ct) =>
+        await BuildNowPlayingResultAsync(id, neck, tunes, ct).ConfigureAwait(false);
+
+    private static async Task<IResult> GetOpenBySlugAsync(string slug, Neck neck, CancellationToken ct)
+    {
+        var struna = await neck.GetStrunaBySlugAsync(slug, ct).ConfigureAwait(false);
+        if (struna is null || !StrunaAccess.IsOpenPlayback(struna.PlaybackAccess))
+        {
+            return Results.NotFound(new { error = "not_found" });
+        }
+
+        return Results.Ok(MapStruna(struna));
+    }
+
+    private static async Task<IResult> NowPlayingBySlugAsync(
+        string slug,
+        Neck neck,
+        TuneLibrary tunes,
+        CancellationToken ct)
+    {
+        var struna = await neck.GetStrunaBySlugAsync(slug, ct).ConfigureAwait(false);
+        if (struna is null || !StrunaAccess.IsOpenPlayback(struna.PlaybackAccess))
+        {
+            return Results.NotFound(new { error = "not_found" });
+        }
+
+        return await BuildNowPlayingResultAsync(struna.Id, neck, tunes, ct).ConfigureAwait(false);
+    }
+
+    private static async Task<IResult> BuildNowPlayingResultAsync(
         Guid id,
         Neck neck,
         TuneLibrary tunes,
@@ -672,6 +709,7 @@ public static class StrunaEndpoints
         {
             "protected" => PlaybackAccess.Protected,
             "private" => PlaybackAccess.Private,
+            "hidden" => PlaybackAccess.Hidden,
             _ => PlaybackAccess.Public,
         };
 

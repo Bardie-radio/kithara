@@ -5,6 +5,8 @@ public enum PlaybackAccess
     Public = 0,
     Protected = 1,
     Private = 2,
+    /// <summary>Same stream gate as public; omitted from listen lists except owner / control / guest.</summary>
+    Hidden = 3,
 }
 
 public enum ControlAccess

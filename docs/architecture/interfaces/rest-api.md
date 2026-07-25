@@ -49,8 +49,10 @@ Wire paths stay English (`/api/streams`); product language is **Struna**.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/streams/listen` | List Strunas the principal may **listen** to (owner + grant; public for everyone) |
+| GET | `/api/streams/listen` | List Strunas the principal may **listen** to (public for everyone; **hidden** omitted except owner/grant/control-guest; protected/private → owner + grant) |
 | GET | `/api/streams/control` | List Strunas the principal may **control** (owner + grant + protected-control guest) |
+| GET | `/api/streams/by-slug/{slug}` | **Unauthenticated.** Metadata when playback is **public** or **hidden**; else `404` |
+| GET | `/api/streams/by-slug/{slug}/now-playing` | **Unauthenticated.** Same open-playback gate as above |
 | POST | `/api/streams` | Create **encode-alive**: slug unique among alive Strunas, session FIFO, silence + FFmpeg, guest code; listen token when playback is protected |
 | GET | `/api/streams/{id}` | Get by internal GUID (listen **or** control ACL) |
 | POST | `/api/streams/{id}/pause` | Pause: silence feeder on + optional module `PauseTrack` (idempotent) |

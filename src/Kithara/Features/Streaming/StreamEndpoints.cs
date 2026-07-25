@@ -121,6 +121,8 @@ public static class StreamEndpoints
         switch (struna.PlaybackAccess)
         {
             case PlaybackAccess.Public:
+            case PlaybackAccess.Hidden:
+                // URL is enough — hidden is list-omitted, not stream-gated.
                 return true;
 
             case PlaybackAccess.Protected:
@@ -150,7 +152,7 @@ public static class StreamEndpoints
 
                 var principal = await AuthPrincipal.ResolveAsync(http.User, persistence, authHarness, ct)
                     .ConfigureAwait(false);
-                if (principal is null || !StrunaAccess.CanListen(struna, principal.UserId))
+                if (principal is null || !StrunaAccess.CanListen(struna, principal))
                 {
                     http.Response.StatusCode = StatusCodes.Status403Forbidden;
                     await http.Response.WriteAsJsonAsync(new { error = "forbidden" }, ct)
