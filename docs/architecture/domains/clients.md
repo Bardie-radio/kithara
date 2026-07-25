@@ -41,7 +41,7 @@ Module-level **capability rights** (what the static app may do at all) are decla
 | **User-aware** | No admin/work RPCs — REST + end-user JWT via BFF | — |
 | **Static** | Same as all | **Client→host managed-user admin** RPCs over mTLS (create/list/revoke + credential mint/reset + ceiling attach) |
 
-There is no client work proto yet and Kithara does not dial a client’s advertise address. Do **not** put managed-user admin on `/api` with the join secret — that would be BFF-reachable and reintroduces shared-secret impersonation. Track as Kithara Feature: *Static client managed-user admin over mTLS gRPC (not join-secret REST)*.
+There is no client work proto yet and Kithara does not dial a client’s advertise address. Do **not** put managed-user admin on `/api` with the join secret — that would be BFF-reachable and reintroduces shared-secret impersonation. Track implementation: [#31](https://github.com/Bardie-radio/kithara/issues/31).
 
 ### Static modules and module-managed users
 
