@@ -17,7 +17,8 @@ public static class StrunaAccess
         access is PlaybackAccess.Public or PlaybackAccess.Hidden;
 
     /// <summary>
-    /// True when the principal may DJ this Struna (play / queue / skip / pause / delete).
+    /// True when the principal may DJ this Struna (play / queue / skip / pause).
+    /// Tear-down (<c>DELETE</c>) is owner-only.
     /// </summary>
     public static bool CanControl(Struna struna, AuthUserRecord principal)
     {

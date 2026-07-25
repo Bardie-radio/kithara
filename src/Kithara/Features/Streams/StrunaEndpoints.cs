@@ -48,9 +48,13 @@ public static class StrunaEndpoints
         group.MapGet("/{id:guid}/now-playing", NowPlayingAsync)
             .AddEndpointFilter<StrunaDiscoverFilter>();
 
+        // Owner-only lifecycle teardown (grantees / guests may DJ but not destroy the Struna).
+        var owner = group.MapGroup("/{id:guid}")
+            .AddEndpointFilter<StrunaOwnerFilter>();
+        owner.MapDelete("/", DeleteAsync);
+
         var dj = group.MapGroup("/{id:guid}")
             .AddEndpointFilter<StrunaControlFilter>();
-        dj.MapDelete("/", DeleteAsync);
         dj.MapPost("/play", PlayAsync);
         dj.MapPost("/quickplay", QuickPlayAsync);
         dj.MapPost("/pause", PauseAsync);
@@ -84,7 +88,7 @@ public static class StrunaEndpoints
     {
         var principal = AuthPrincipal.Get(http);
         var list = await neck.ListStrunasAsync(ct).ConfigureAwait(false);
-        return Results.Ok(new { strunas = list.Where(s => predicate(s, principal)).Select(MapStruna) });
+        return Results.Ok(new { strunas = list.Where(s => predicate(s, principal)).Select(s => MapStruna(s)) });
     }
 
     private static async Task<IResult> CreateAsync(
@@ -140,8 +144,13 @@ public static class StrunaEndpoints
         };
     }
 
-    private static IResult GetAsync(HttpContext http) =>
-        Results.Ok(MapStruna(StrunaRequest.Entity(http)));
+    private static IResult GetAsync(HttpContext http)
+    {
+        var struna = StrunaRequest.Entity(http);
+        var principal = StrunaRequest.Principal(http);
+        var ownerSecrets = struna.OwnerUserId == principal.UserId;
+        return Results.Ok(MapStruna(struna, includeOwnerSecrets: ownerSecrets));
+    }
 
     private static async Task<IResult> DeleteAsync(
         Guid id,
@@ -728,16 +737,36 @@ public static class StrunaEndpoints
         };
     }
 
-    private static object MapStruna(Struna s) => new
+    private static object MapStruna(Struna s, bool includeOwnerSecrets = false)
     {
-        id = s.Id,
-        slug = s.Slug,
-        title = s.Title,
-        playback_access = s.PlaybackAccess.ToString().ToLowerInvariant(),
-        control_access = s.ControlAccess.ToString().ToLowerInvariant(),
-        owner_user_id = s.OwnerUserId,
-        created_at = s.CreatedAt,
-    };
+        if (!includeOwnerSecrets)
+        {
+            return new
+            {
+                id = s.Id,
+                slug = s.Slug,
+                title = s.Title,
+                playback_access = s.PlaybackAccess.ToString().ToLowerInvariant(),
+                control_access = s.ControlAccess.ToString().ToLowerInvariant(),
+                owner_user_id = s.OwnerUserId,
+                created_at = s.CreatedAt,
+            };
+        }
+
+        // Owner-only: durable guest code + listen token (create already returned these once).
+        return new
+        {
+            id = s.Id,
+            slug = s.Slug,
+            title = s.Title,
+            playback_access = s.PlaybackAccess.ToString().ToLowerInvariant(),
+            control_access = s.ControlAccess.ToString().ToLowerInvariant(),
+            owner_user_id = s.OwnerUserId,
+            created_at = s.CreatedAt,
+            guest_code = s.GuestCode,
+            listen_token = s.ListenToken,
+        };
+    }
 
     private static object MapStrunaCreated(Struna s) => new
     {
