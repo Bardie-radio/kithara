@@ -19,10 +19,17 @@ sequenceDiagram
 Content-Type: audio/mpeg
 icy-name: Friday Night Jazz
 icy-genre: Bardie
+```
+
+When the client sends `Icy-MetaData: 1` (VLC / most legacy players), also:
+
+```
 icy-metaint: 8192
 ```
 
 Inline metadata blocks: `StreamTitle='Artist - Title';`
+
+Clients that **omit** `Icy-MetaData: 1` (HTML5 `<audio>`, many browsers) receive **plain MP3** with no in-band blocks — browsers decode ICY bytes as audio and stutter.
 
 ## Auth by playback mode
 
