@@ -207,12 +207,40 @@ public static class StrunaEndpoints
     private static async Task<IResult> SkipAsync(Guid id, Neck neck, CancellationToken ct) =>
         MapPlayResult(await neck.SkipAsync(id, ct).ConfigureAwait(false));
 
-    private static IResult NowPlayingAsync(Guid id, Neck neck)
+    private static async Task<IResult> NowPlayingAsync(
+        Guid id,
+        Neck neck,
+        TuneLibrary tunes,
+        CancellationToken ct)
     {
         var now = neck.GetNowPlaying(id);
         if (now is null)
         {
             return Results.Ok(new { playing = false });
+        }
+
+        var artworkUrl = now.ArtworkUrl;
+        var title = now.Title;
+        var artist = now.Artist;
+        if (string.IsNullOrWhiteSpace(artworkUrl)
+            || string.IsNullOrWhiteSpace(title)
+            || string.IsNullOrWhiteSpace(artist))
+        {
+            var tune = await tunes
+                .FindByModuleRefAsync(now.ModuleSlug, now.TrackRef, ct)
+                .ConfigureAwait(false);
+            if (tune is not null)
+            {
+                artworkUrl = string.IsNullOrWhiteSpace(artworkUrl) ? tune.ArtworkUrl : artworkUrl;
+                title = string.IsNullOrWhiteSpace(title) ? tune.Title : title;
+                artist = string.IsNullOrWhiteSpace(artist) ? tune.Artist : artist;
+            }
+        }
+
+        var streamTitle = BuildStreamTitle(artist, title);
+        if (string.IsNullOrWhiteSpace(streamTitle))
+        {
+            streamTitle = now.StreamTitle;
         }
 
         return Results.Ok(new
@@ -222,10 +250,28 @@ public static class StrunaEndpoints
             module = now.ModuleSlug,
             track_ref = now.TrackRef,
             track_job_id = now.TrackJobId,
-            title = now.Title,
-            artist = now.Artist,
-            stream_title = now.StreamTitle,
+            title,
+            artist,
+            stream_title = streamTitle,
+            artwork_url = artworkUrl,
         });
+    }
+
+    private static string BuildStreamTitle(string? artist, string? title)
+    {
+        var hasArtist = !string.IsNullOrWhiteSpace(artist);
+        var hasTitle = !string.IsNullOrWhiteSpace(title);
+        if (hasArtist && hasTitle)
+        {
+            return $"{artist!.Trim()} - {title!.Trim()}";
+        }
+
+        if (hasTitle)
+        {
+            return title!.Trim();
+        }
+
+        return hasArtist ? artist!.Trim() : string.Empty;
     }
 
     private static async Task<IResult> ListQueueAsync(Guid id, Neck neck, CancellationToken ct)
@@ -328,7 +374,7 @@ public static class StrunaEndpoints
                     hit.Title,
                     hit.Artist,
                     null,
-                    null,
+                    ArtworkFromHit(hit),
                     null,
                     null,
                     null),
@@ -602,6 +648,17 @@ public static class StrunaEndpoints
 
     private static Guid? ParseGuid(string? value) =>
         Guid.TryParse(value, out var id) ? id : null;
+
+    private static string? ArtworkFromHit(CachedSearchHit hit)
+    {
+        if (hit.Metadata.TryGetValue("artwork_url", out var url)
+            && !string.IsNullOrWhiteSpace(url))
+        {
+            return url.Trim();
+        }
+
+        return null;
+    }
 
     public sealed class CreateStrunaBody
     {

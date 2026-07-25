@@ -131,13 +131,20 @@ public sealed partial class Neck
             .ConfigureAwait(false);
 
         if (outcome.Ok
-            && (!string.IsNullOrWhiteSpace(next.Tune.Title) || !string.IsNullOrWhiteSpace(next.Tune.Artist)))
+            && (!string.IsNullOrWhiteSpace(next.Tune.Title)
+                || !string.IsNullOrWhiteSpace(next.Tune.Artist)
+                || !string.IsNullOrWhiteSpace(next.Tune.ArtworkUrl)))
         {
             if (_nowPlaying.TryGetValue(strunaId, out var snap))
             {
                 SetNowPlaying(
                     strunaId,
-                    snap with { Title = next.Tune.Title, Artist = next.Tune.Artist });
+                    snap with
+                    {
+                        Title = next.Tune.Title,
+                        Artist = next.Tune.Artist,
+                        ArtworkUrl = next.Tune.ArtworkUrl,
+                    });
             }
         }
 
