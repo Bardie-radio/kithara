@@ -2,7 +2,7 @@
 
 Thin **put/get** API hosted on **Kithara**. Source modules (Magpie, Catbird, …) **dial Kithara** over mTLS — drivers stay inside Kithara only ([storage](../domains/storage.md), [ADR 010](../adrs/010-blob-storage-backends.md)).
 
-**Status:** v0.1 draft — RPC set and dial rules are frozen; field names may still evolve slightly before NuGet publish. Checked-in proto: [`libs/Bardie.Contracts/Protos/blob_storage.proto`](../../../libs/Bardie.Contracts/Protos/blob_storage.proto) (package `Bardie.Contracts`).
+**Status:** v0.1 draft — RPC set and dial rules are frozen; packages published on nuget.org as `Bardie.Logos.Contracts`. Checked-in proto: [`blob_storage.proto`](https://github.com/Bardie-radio/logos/blob/main/src/Bardie.Logos.Contracts/Protos/blob_storage.proto) in `Bardie.Logos.Contracts` (wire package `bardie.storage.v1`).
 
 ```protobuf
 syntax = "proto3";
@@ -70,6 +70,6 @@ message GetBlobResponse {
 - No parallel `BARDIE_STORAGE_*` on modules — config is Kithara-only.
 - Session FIFOs are **not** blob storage ([ADR 004](../adrs/004-source-instance-socket-audio-plane.md)).
 
-**Related:** [domains/storage.md](../domains/storage.md) · [grpc-library](grpc-library.md) · [grpc-source-module](grpc-source-module.md) · [ADR 010](../adrs/010-blob-storage-backends.md) · [Bardie.Contracts](../../../libs/Bardie.Contracts/README.md)
+**Related:** [domains/storage.md](../domains/storage.md) · [grpc-library](grpc-library.md) · [grpc-source-module](grpc-source-module.md) · [ADR 010](../adrs/010-blob-storage-backends.md) · [Bardie.Logos.Contracts](https://github.com/Bardie-radio/logos/tree/main/src/Bardie.Logos.Contracts)
 
 **Read next:** [grpc-library.md](grpc-library.md)

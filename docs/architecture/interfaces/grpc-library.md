@@ -2,7 +2,7 @@
 
 Modules **dial Kithara** to upsert shared-library **Tunes**. Kithara owns EF persistence ([library-and-tunes](../domains/library-and-tunes.md), [ADR 006](../adrs/006-stream-source-tune-data-model.md)).
 
-**Status:** v0.1 draft — RPC set and dial rules are frozen; field names may still evolve slightly before NuGet publish. Checked-in proto: [`libs/Bardie.Contracts/Protos/library.proto`](../../../libs/Bardie.Contracts/Protos/library.proto) (package `Bardie.Contracts`).
+**Status:** v0.1 draft — RPC set and dial rules are frozen; packages published on nuget.org as `Bardie.Logos.Contracts`. Checked-in proto: [`library.proto`](https://github.com/Bardie-radio/logos/blob/main/src/Bardie.Logos.Contracts/Protos/library.proto) in `Bardie.Logos.Contracts` (wire package `bardie.library.v1`).
 
 ```protobuf
 syntax = "proto3";
@@ -45,6 +45,6 @@ Invariants (frozen for v0.1):
 2. **Sparse Tunes are valid** — storage fields may be empty (e.g. Starling URI-only).
 3. Dial over ModuleChannel mTLS on Kithara `:5000`, same surface as [BlobStorage](grpc-blob-storage.md).
 
-**Related:** [domains/library-and-tunes.md](../domains/library-and-tunes.md) · [grpc-blob-storage](grpc-blob-storage.md) · [grpc-source-module](grpc-source-module.md) · [ADR 006](../adrs/006-stream-source-tune-data-model.md) · [Bardie.Contracts](../../../libs/Bardie.Contracts/README.md)
+**Related:** [domains/library-and-tunes.md](../domains/library-and-tunes.md) · [grpc-blob-storage](grpc-blob-storage.md) · [grpc-source-module](grpc-source-module.md) · [ADR 006](../adrs/006-stream-source-tune-data-model.md) · [Bardie.Logos.Contracts](https://github.com/Bardie-radio/logos/tree/main/src/Bardie.Logos.Contracts)
 
 **Read next:** [grpc-auth-adapter.md](grpc-auth-adapter.md)

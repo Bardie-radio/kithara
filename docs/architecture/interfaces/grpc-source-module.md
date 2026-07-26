@@ -2,7 +2,7 @@
 
 Source modules (**Magpie**, **Starling**, **Catbird**, …) host the **work** RPCs below. They **dial Kithara** only to join via [Module Registry](grpc-module-registry.md) (not via `Register` on this service).
 
-**Status:** v0.1 draft — RPC set and dial rules are frozen; field names may still evolve slightly before NuGet publish. Checked-in proto: [`libs/Bardie.Contracts/Protos/source_module.proto`](../../../libs/Bardie.Contracts/Protos/source_module.proto) (package `Bardie.Contracts`).
+**Status:** v0.1 draft — RPC set and dial rules are frozen; packages published on nuget.org as `Bardie.Logos.Contracts`. Checked-in proto: [`source_module.proto`](https://github.com/Bardie-radio/logos/blob/main/src/Bardie.Logos.Contracts/Protos/source_module.proto) in `Bardie.Logos.Contracts` (wire package `bardie.source.v1`).
 
 ```protobuf
 syntax = "proto3";
@@ -129,6 +129,6 @@ On cache miss, Magpie (and similar) **Put** via [BlobStorage](grpc-blob-storage.
 - Export OTLP with `service.name=bardie.source.<slug>` (e.g. `bardie.source.magpie`)
 - Enforce parallel track-job limits internally
 
-**Related:** [grpc-module-registry](grpc-module-registry.md) · [grpc-blob-storage](grpc-blob-storage.md) · [grpc-library](grpc-library.md) · [domains/source-modules.md](../domains/source-modules.md) · [ADR 003](../adrs/003-grpc-control-plane.md) · [ADR 004](../adrs/004-source-instance-socket-audio-plane.md) · [Bardie.Contracts](../../../libs/Bardie.Contracts/README.md)
+**Related:** [grpc-module-registry](grpc-module-registry.md) · [grpc-blob-storage](grpc-blob-storage.md) · [grpc-library](grpc-library.md) · [domains/source-modules.md](../domains/source-modules.md) · [ADR 003](../adrs/003-grpc-control-plane.md) · [ADR 004](../adrs/004-source-instance-socket-audio-plane.md) · [Bardie.Logos.Contracts](https://github.com/Bardie-radio/logos/tree/main/src/Bardie.Logos.Contracts)
 
 **Read next:** [grpc-blob-storage.md](grpc-blob-storage.md)

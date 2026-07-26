@@ -2,7 +2,7 @@
 
 Every Bardie module — **source**, **auth**, and **client** — joins the same way: the module **dials Kithara** and calls `Register` (plus heartbeats). There is no special case for Plume vs Magpie vs Bes on the join path.
 
-**Status:** v0.1 draft — RPC set and dial rules are frozen; field names may still evolve slightly before NuGet publish. Checked-in proto: [`libs/Bardie.Contracts/Protos/module_registry.proto`](../../../libs/Bardie.Contracts/Protos/module_registry.proto) (package `Bardie.Contracts`).
+**Status:** v0.1 draft — RPC set and dial rules are frozen; packages published on nuget.org as `Bardie.Logos.Contracts`. Checked-in proto: [`module_registry.proto`](https://github.com/Bardie-radio/logos/blob/main/src/Bardie.Logos.Contracts/Protos/module_registry.proto) in `Bardie.Logos.Contracts` (wire package `bardie.modules.v1`).
 
 Kithara hosts this service on internal gRPC (`:5000`). Modules default `KITHARA_GRPC_ADDRESS` to Compose DNS (e.g. `kithara:5000`) so local stacks need little wiring.
 

@@ -3,6 +3,14 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
+    <!-- Bardie mesh libs (nuget.org) -->
+    <PackageVersion Include="Bardie.Logos.Contracts" Version="0.1.0" />
+    <PackageVersion Include="Bardie.Logos.Channel" Version="0.1.0" />
+    <PackageVersion Include="Bardie.Logos.Hosting" Version="0.1.0" />
+    <PackageVersion Include="Bardie.Module.Auth" Version="0.1.0" />
+    <PackageVersion Include="Bardie.Module.Source" Version="0.1.0" />
+    <PackageVersion Include="Bardie.Module.Source.Debug" Version="0.1.0" />
+
     <!-- OpenTelemetry -->
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />

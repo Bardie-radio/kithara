@@ -9,10 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="Grpc.Net.Client" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\logos\src\Bardie.Logos.Contracts\Bardie.Logos.Contracts.csproj" />
+    <PackageReference Include="Bardie.Logos.Contracts" />
   </ItemGroup>
 
 </Project>

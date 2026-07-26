@@ -1,8 +1,9 @@
-# Build from the parent folder that contains `kithara/`, `logos/`, `kithara-logos-auth/`,
-# and `kithara-logos-source/` (multi-root / Local Compose sibling layout):
+# Build from this repo (or compose context ../kithara):
 #
-#   docker build -f kithara/Dockerfile -t kithara .
-#   docker build -f kithara/Dockerfile --target test .
+#   docker build -t kithara .
+#   docker build --target test .
+#
+# Restores Bardie.Logos.* / Bardie.Module.* from nuget.org.
 #
 # META-OPS-002: Alpine final + bare libav packages (no ffmpeg CLI metapackage).
 # Build on Debian SDK so Grpc.Tools protoc (glibc) runs; publish for linux-musl-x64.
@@ -12,25 +13,13 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-COPY logos/Directory.Build.props logos/Directory.Packages.props logos/
-COPY logos/src/Bardie.Logos.Contracts logos/src/Bardie.Logos.Contracts/
-COPY logos/src/Bardie.Logos.Channel logos/src/Bardie.Logos.Channel/
-COPY logos/src/Bardie.Logos.Hosting logos/src/Bardie.Logos.Hosting/
+COPY Directory.Build.props Directory.Packages.props ./
+COPY Kithara.sln ./
+COPY libs libs/
+COPY src/Kithara src/Kithara/
 
-COPY kithara-logos-auth/Directory.Build.props kithara-logos-auth/Directory.Packages.props kithara-logos-auth/
-COPY kithara-logos-auth/src/Bardie.Module.Auth kithara-logos-auth/src/Bardie.Module.Auth/
-
-COPY kithara-logos-source/Directory.Build.props kithara-logos-source/Directory.Packages.props kithara-logos-source/
-COPY kithara-logos-source/src/Bardie.Module.Source kithara-logos-source/src/Bardie.Module.Source/
-COPY kithara-logos-source/src/Bardie.Module.Source.Debug kithara-logos-source/src/Bardie.Module.Source.Debug/
-
-COPY kithara/Directory.Build.props kithara/Directory.Packages.props kithara/
-COPY kithara/Kithara.sln kithara/
-COPY kithara/libs kithara/libs/
-COPY kithara/src/Kithara kithara/src/Kithara/
-
-RUN dotnet restore kithara/src/Kithara/Kithara.csproj -r linux-musl-x64 \
- && dotnet publish kithara/src/Kithara/Kithara.csproj \
+RUN dotnet restore src/Kithara/Kithara.csproj -r linux-musl-x64 \
+ && dotnet publish src/Kithara/Kithara.csproj \
       -c Release -r linux-musl-x64 --self-contained false \
       -o /app/publish --no-restore
 
@@ -42,19 +31,13 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 ENV BARDIE_FFMPEG_ROOT=/usr/lib/x86_64-linux-gnu
-COPY logos/Directory.Build.props logos/Directory.Packages.props logos/
-COPY logos/src logos/src/
-COPY kithara-logos-auth/Directory.Build.props kithara-logos-auth/Directory.Packages.props kithara-logos-auth/
-COPY kithara-logos-auth/src kithara-logos-auth/src/
-COPY kithara-logos-source/Directory.Build.props kithara-logos-source/Directory.Packages.props kithara-logos-source/
-COPY kithara-logos-source/src kithara-logos-source/src/
-COPY kithara/Directory.Build.props kithara/Directory.Packages.props kithara/
-COPY kithara/Kithara.sln kithara/
-COPY kithara/libs kithara/libs/
-COPY kithara/src kithara/src/
-COPY kithara/tests kithara/tests/
-RUN dotnet restore kithara/Kithara.sln
-RUN dotnet test kithara/Kithara.sln -c Release --no-restore
+COPY Directory.Build.props Directory.Packages.props ./
+COPY Kithara.sln ./
+COPY libs libs/
+COPY src src/
+COPY tests tests/
+RUN dotnet restore Kithara.sln
+RUN dotnet test Kithara.sln -c Release --no-restore
 
 # Pin alpine3.22: floating `10.0-alpine` is 3.23+ (ffmpeg 8 → libavutil.so.60) which
 # does not match FFmpeg.AutoGen 6.1.0.1 (expects libavutil.so.58 / libavcodec.so.60).
