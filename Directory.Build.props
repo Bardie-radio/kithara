@@ -5,5 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+
+    <!-- Image / release version (lockstep with GHCR tags). -->
+    <Version>0.1.0</Version>
   </PropertyGroup>
 </Project>
