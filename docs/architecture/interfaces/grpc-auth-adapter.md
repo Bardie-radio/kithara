@@ -2,7 +2,7 @@
 
 Auth adapters (**Bes**, **Argus**, **Hecate**, …) speak **one** work contract. Join is via [Module Registry](grpc-module-registry.md) (module dials Kithara) — `Register` is **not** on this service.
 
-**Status:** v0.1 draft — RPC set and dial rules are frozen; field names may still evolve slightly before NuGet publish. Checked-in proto: [`libs/Bardie.Contracts/Protos/auth_adapter.proto`](../../../libs/Bardie.Contracts/Protos/auth_adapter.proto) (package `Bardie.Contracts`).
+**Status:** v0.1 draft — RPC set and dial rules are frozen; packages published on nuget.org as `Bardie.Logos.Contracts`. Checked-in proto: [`auth_adapter.proto`](https://github.com/Bardie-radio/logos/blob/main/src/Bardie.Logos.Contracts/Protos/auth_adapter.proto) in `Bardie.Logos.Contracts` (wire package `bardie.auth.v1`).
 
 **Unified token protocol for login: JWT.** Modules authenticate/verify and **return access + refresh JWTs** (mint their own, or forward a provider’s — Argus forwards OIDC tokens). Kithara stores users/bindings and verifies those JWTs via module JWKS.
 
@@ -135,6 +135,6 @@ Invariants (frozen for v0.1):
 
 JWT-minting adapters (Bes, typically Hecate) may embed packable **`Bardie.Module.Auth`** for mint/refresh/JWKS Register attach and a thin `AuthAdapterModuleBase` (`Health`, provider-id checks, default `UpdateUserBinding` → Unimplemented). Password/OIDC/passkey ceremony stays in the module. Participant Program bootstrap + Bardie Compose env aliases live in **`Bardie.Module.Hosting`**. Mesh mTLS stays in **`Bardie.Module.Channel`**.
 
-**Related:** [grpc-module-registry](grpc-module-registry.md) · [domains/auth-adapters.md](../domains/auth-adapters.md) · [interfaces/auth.md](auth.md) · [ADR 007](../adrs/007-auth-adapter-modules.md) · [Bardie.Contracts](../../../libs/Bardie.Contracts/README.md) · [Bardie.Module.Auth](../../../libs/Bardie.Module.Auth/README.md)
+**Related:** [grpc-module-registry](grpc-module-registry.md) · [domains/auth-adapters.md](../domains/auth-adapters.md) · [interfaces/auth.md](auth.md) · [ADR 007](../adrs/007-auth-adapter-modules.md) · [Bardie.Logos.Contracts](https://github.com/Bardie-radio/logos/tree/main/src/Bardie.Logos.Contracts) · [Bardie.Module.Auth](https://github.com/Bardie-radio/kithara-logos-auth)
 
 **Read next:** [uri-routing.md](uri-routing.md)

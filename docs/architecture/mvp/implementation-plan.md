@@ -172,7 +172,7 @@ Same contract on Bes/Magpie/Plume from their first runnable container ([ADR 008]
 
 | Repo                | Follow-up                                                                 |
 | ------------------- | ------------------------------------------------------------------------- |
-| **magpie**, **bes** | `PackageReference` / sibling `ProjectReference` to `Bardie.Logos.Contracts` (+ Channel/Hosting; Auth/Source kind packages) |
+| **magpie**, **bes** | `PackageReference` to nuget.org `Bardie.Logos.*` (+ Auth/Source kind packages) |
 | **plume**           | REST client stubs from rest-api                                           |
 | **org**             | Join-secret / volume notes in deployment narrative when attach is decided |
 

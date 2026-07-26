@@ -12,10 +12,9 @@ Modules dial the host to `Register`, then speak mTLS for Heartbeat and work RPCs
 
 | Context | How modules reference libs |
 |---------|----------------------------|
-| Multi-root workspace / Local Compose sibling layout | If `../logos/src` exists → **`ProjectReference`** (Bes/Magpie/Plume `Directory.Build.props`); kind SDKs from `../kithara-logos-auth` / `../kithara-logos-source` |
-| Standalone CI / published consumers | **`PackageReference`** to versioned `Bardie.Logos.Contracts` + `Bardie.Logos.Channel` (`0.1.0`); participants also take `Bardie.Logos.Hosting` (+ `Bardie.Module.Auth` when minting JWTs) |
+| All builds (local, CI, Docker) | **`PackageReference`** to nuget.org `Bardie.Logos.Contracts` + `Bardie.Logos.Channel` (pin in `Directory.Packages.props`); participants also take `Bardie.Logos.Hosting` (+ `Bardie.Module.Auth` / `Bardie.Module.Source` as needed) |
 
-Do **not** git-submodule Kithara, copy `.proto`/`.cs` into module repos, or path-include protos from another repo in a module csproj.
+Do **not** git-submodule Kithara, copy `.proto`/`.cs` into module repos, path-include protos from another repo, or `ProjectReference` sibling Lib checkouts.
 
 ## Participant hosting vs Channel
 

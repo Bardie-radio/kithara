@@ -25,7 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\kithara-logos-source\src\Bardie.Module.Source.Debug\Bardie.Module.Source.Debug.csproj" />
+    <PackageReference Include="Bardie.Module.Source.Debug" />
   </ItemGroup>
 
 </Project>

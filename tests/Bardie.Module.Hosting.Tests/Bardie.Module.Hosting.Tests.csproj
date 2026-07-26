@@ -24,8 +24,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\logos\src\Bardie.Logos.Hosting\Bardie.Logos.Hosting.csproj" />
-    <ProjectReference Include="..\..\..\logos\src\Bardie.Logos.Channel\Bardie.Logos.Channel.csproj" />
+    <PackageReference Include="Bardie.Logos.Hosting" />
+    <PackageReference Include="Bardie.Logos.Channel" />
   </ItemGroup>
 
 </Project>

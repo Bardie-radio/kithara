@@ -73,10 +73,8 @@ src/Kithara/
 libs/                         # host-only (stay in Kithara)
   Bardie.Harness.Auth/
   Bardie.Harness.Source/
-# Sibling Lib repos (ProjectReference while developing):
-#   logos/                  Bardie.Logos.{Contracts,Channel,Hosting}
-#   kithara-logos-auth/     Bardie.Module.Auth
-#   kithara-logos-source/   Bardie.Module.Source(+.Debug)
+# Mesh libs: PackageReference nuget.org Bardie.Logos.* / Bardie.Module.*
+#   (repos: logos, kithara-logos-auth, kithara-logos-source)
 ```
 
 FFmpeg child processes **outlive HTTP requests** — own them with a hosted background supervisor, not a request-scoped service alone.

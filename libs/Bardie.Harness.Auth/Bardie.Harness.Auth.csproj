@@ -11,11 +11,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\logos\src\Bardie.Logos.Contracts\Bardie.Logos.Contracts.csproj" />
-    <ProjectReference Include="..\..\..\logos\src\Bardie.Logos.Channel\Bardie.Logos.Channel.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
+    <PackageReference Include="Bardie.Logos.Contracts" />
+    <PackageReference Include="Bardie.Logos.Channel" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Options" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
