@@ -20,8 +20,8 @@ Bardie uses **live broadcast** semantics ([ADR 001](../adrs/001-broadcast-sync-m
 | **Skip** | `StopTrack` current job → play next queue entry (FFmpeg stays up) |
 | **Pause** | Keep FFmpeg + FIFO + slug; Neck feeds silence |
 | **Delete** | Kill FFmpeg, close FIFO, **free slug**, remove Struna — one teardown (no separate “stop”) |
-| **Queue** | Append a specific track (same body shapes as play) |
-| **Quickqueue** | Quick-search → append first hit |
+| **Queue** | Append a specific track (same body shapes as play). If the Struna is idle (no active track job), also start the queue head — same as Skip from empty now-playing |
+| **Quickqueue** | Quick-search → append first hit (same idle auto-start as Queue) |
 
 Informal **prewarm**: the next module may buffer ahead; no MVP `PrepareTrack` RPC.
 

@@ -80,6 +80,37 @@ public sealed partial class Neck
             },
             CancellationToken.None);
 
+        // Idle (no active track job): start the queue head so "add to queue" isn't stuck until Skip.
+        // Playing / paused keep a job — append only. Natural track-end clears the job and may leave
+        // a draining now-playing snapshot; enqueue should kick off the next head without a Skip.
+        if (!_jobs.ContainsKey(strunaId))
+        {
+            var gate = Gate(strunaId);
+            await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                if (!_jobs.ContainsKey(strunaId))
+                {
+                    _encoder.SetSilence(strunaId, true);
+                    try
+                    {
+                        await AdvanceQueueHeadCoreAsync(strunaId, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(
+                            ex,
+                            "Queue advance failed after idle enqueue on Struna {Id}",
+                            strunaId);
+                    }
+                }
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }
+
         return (entry, null);
     }
 
