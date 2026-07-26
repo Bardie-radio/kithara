@@ -12,10 +12,7 @@ public static class PersistenceServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var provider = (configuration["DbProvider"] ?? "sqlite").Trim().ToLowerInvariant();
-        var connectionString = configuration["DbConnectionString"]
-            ?? configuration.GetConnectionString("Kithara")
-            ?? "Data Source=kithara.db";
+        var (provider, connectionString) = ResolveDatabase(configuration);
 
         services.AddDbContextFactory<KitharaDbContext>(options =>
         {
@@ -33,6 +30,91 @@ public static class PersistenceServiceCollectionExtensions
 
         services.AddSingleton<IAuthPersistence, EfAuthPersistence>();
         return services;
+    }
+
+    /// <summary>
+    /// Resolves EF provider + connection string.
+    /// Prefer Jellyfin-style <c>POSTGRES_HOST</c> / <c>POSTGRES_USER</c> / … when set (Compose).
+    /// SQLite is allowed only outside Production (Development / tests).
+    /// Production requires Postgres via <c>POSTGRES_HOST</c> or <c>DbProvider=postgres</c> + connection string.
+    /// </summary>
+    public static (string Provider, string ConnectionString) ResolveDatabase(IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        var postgresHost = FirstNonEmpty(
+            configuration["POSTGRES_HOST"],
+            configuration["BARDIE_POSTGRES_HOST"]);
+
+        if (!string.IsNullOrWhiteSpace(postgresHost))
+        {
+            var user = FirstNonEmpty(
+                configuration["POSTGRES_USER"],
+                configuration["BARDIE_POSTGRES_USER"]) ?? "kithara";
+            var password = FirstNonEmpty(
+                configuration["POSTGRES_PASSWORD"],
+                configuration["BARDIE_POSTGRES_PASSWORD"]);
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                throw new InvalidOperationException(
+                    "POSTGRES_PASSWORD is required when POSTGRES_HOST is set.");
+            }
+
+            var database = FirstNonEmpty(
+                configuration["POSTGRES_DB"],
+                configuration["BARDIE_POSTGRES_DB"]) ?? "kithara";
+            var port = FirstNonEmpty(
+                configuration["POSTGRES_PORT"],
+                configuration["BARDIE_POSTGRES_PORT"]) ?? "5432";
+
+            var connectionString =
+                $"Host={postgresHost.Trim()};Port={port.Trim()};Database={database.Trim()};Username={user.Trim()};Password={password}";
+            return ("postgres", connectionString);
+        }
+
+        var provider = (configuration["DbProvider"] ?? "sqlite").Trim().ToLowerInvariant();
+        var connectionStringFallback = configuration["DbConnectionString"]
+            ?? configuration.GetConnectionString("Kithara");
+
+        if (IsProduction(configuration))
+        {
+            if (provider is "postgres" or "postgresql")
+            {
+                if (string.IsNullOrWhiteSpace(connectionStringFallback))
+                {
+                    throw new InvalidOperationException(
+                        "Production postgres requires POSTGRES_HOST (+ PASSWORD) or DbConnectionString.");
+                }
+
+                return (provider, connectionStringFallback);
+            }
+
+            throw new InvalidOperationException(
+                "Production requires Postgres (POSTGRES_HOST + POSTGRES_PASSWORD). SQLite is Development-only.");
+        }
+
+        return (provider, connectionStringFallback ?? "Data Source=kithara.db");
+    }
+
+    private static bool IsProduction(IConfiguration configuration)
+    {
+        var env = FirstNonEmpty(
+            configuration["ASPNETCORE_ENVIRONMENT"],
+            configuration["DOTNET_ENVIRONMENT"]);
+        return string.Equals(env, "Production", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? FirstNonEmpty(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

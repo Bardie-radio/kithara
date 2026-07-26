@@ -17,6 +17,30 @@ IDs use `SURFACE-TOPIC-NNN` (see [security-audit ID scheme](security-audit.md#id
 | [META-OTEL-002](#meta-otel-002--taskrun-drops-activity-context-magpie--neck) | P1 | **Fixed** — ActivityLink across Magpie/Neck `Task.Run` | [kithara#36](https://github.com/Bardie-radio/kithara/issues/36) |
 | [META-OTEL-003](#meta-otel-003--span-attrs--stage-coverage-lag-adr-008) | P2 | **Fixed** (traces/attrs/stages; OTLP logs still optional/deferred) | [kithara#35](https://github.com/Bardie-radio/kithara/issues/35) |
 | [STREAM-ACL-001](#stream-acl-001--protected-canlisten-ignores-listen-token-holders) | P3 | `CanListen` / listen list for **protected** are owner+grant only; token holders are stream-only today | backlog |
+| [DEPLOY-PLUME-001](#deploy-plume-001--ghcr-plume-missing-vite-wwwrootdist) | Blocker | Published Plume image lacks Vite assets until republish | [pre-publish-audit](pre-publish-audit.md) |
+| [META-LOG-001](#meta-log-001--production-log-noise--auth-invite-banner) | P3 | **Fixed** (source) — quiet EF/framework logs; AUTH-INVITE banner | publish required |
+
+---
+
+## DEPLOY-PLUME-001 — GHCR Plume missing Vite `wwwroot/dist`
+
+**Severity:** Blocker for clean `docker compose up` from published images  
+**Component:** Plume Dockerfile / publish / static files  
+**Status:** **Open** until GHCR image includes `wwwroot/dist`
+
+**Tracking:** [pre-publish-audit](pre-publish-audit.md) · local `deploy-test` builds Plume from source as a workaround
+
+Source already runs `npm run build` before `dotnet publish` and serves via `UseStaticFiles`. Older GHCR tags omit dist → empty Content-Type + `nosniff` breaks the UI. Republish Plume after the Dockerfile/csproj fix is on the default branch.
+
+---
+
+## META-LOG-001 — Production log noise + AUTH-INVITE banner
+
+**Severity:** P3 (ops ergonomics)  
+**Component:** Kithara + Plume + Magpie + Bes logging  
+**Status:** **Fixed** in source (26 Jul 2026) — **publish required**
+
+EF Core SQL at Information and broad `Microsoft`/`System` noise buried the registration OTP. Production defaults now raise EF/framework categories to Warning; Kithara logs a multi-line AUTH-INVITE WARNING banner; modules print a short startup banner. Does not log join secrets.
 
 ---
 
@@ -33,9 +57,9 @@ MVP locks the session audio plane to **s16le / 48 kHz / stereo** ([grpc-source-m
 
 | Location | Role |
 |----------|------|
-| `libs/Bardie.Module.Source/FifoAudioSink.cs` | Realtime write pacing |
+| `Bardie.Module.Source` `FifoAudioSink` ([kithara-logos-source](https://github.com/Bardie-radio/kithara-logos-source)) | Realtime write pacing |
 | `src/Kithara/Infrastructure/Neck/SilenceFeeder.cs` | Zero-PCM feed (+ encoder via `CanonicalPcm`) |
-| `libs/Bardie.Module.Source.Debug/SinePcmProof.cs` | Dev sine stream |
+| `Bardie.Module.Source.Debug` `SinePcmProof` ([kithara-logos-source](https://github.com/Bardie-radio/kithara-logos-source)) | Dev sine stream |
 | Magpie `Infrastructure/Media/FfmpegPcmTranscoder.cs` | Decode → FIFO |
 
 Chunk / buffer sizes (e.g. `FifoAudioSink.BufferSize`) remain local I/O knobs.
@@ -155,6 +179,6 @@ Protected playback is **token-based** on `/stream/{slug}?token=…` ([struna-acc
 
 ---
 
-**Related:** [security-audit.md](security-audit.md) · [implementation-plan.md](implementation-plan.md) · [grpc-source-module.md](../interfaces/grpc-source-module.md) · [observability.md](../operations/observability.md)
+**Related:** [pre-publish-audit.md](pre-publish-audit.md) · [security-audit.md](security-audit.md) · [implementation-plan.md](implementation-plan.md) · [grpc-source-module.md](../interfaces/grpc-source-module.md) · [observability.md](../operations/observability.md)
 
-**Read next:** [security-audit.md](security-audit.md)
+**Read next:** [pre-publish-audit.md](pre-publish-audit.md) · [security-audit.md](security-audit.md)

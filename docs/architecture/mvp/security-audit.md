@@ -2,9 +2,9 @@
 
 Living audit of trust assumptions across the Module mesh, auth vertical, library/storage, and guest paths. Not a full product pen-test — focused on **who can become trusted**, **who gets admin**, and **what tokens/keys actually do**.
 
-**Last review:** Full-stack MVP including Plume (Jul 2026). Prior: Phases 4–6 backend audit; Phases 1–3 index below.
+**Last review:** Pre-publish GHCR audit (26 Jul 2026) — see [pre-publish-audit.md](pre-publish-audit.md). Prior: full-stack MVP including Plume (Jul 2026); Phases 4–6 backend audit.
 
-**Remediation status:** Phase 4–6 product remediations remain **closed** / partial as in the status table. Plume Phases 1–6 **feature-complete** (`/player` autoplay is intentional). Soft residuals + Plume findings → Phase 8. `MESH-REG-*` stays ops + backlog.
+**Remediation status:** Phase 4–6 product remediations remain **closed** / partial as in the status table. Plume Phases 1–6 **feature-complete** (`/player` autoplay is intentional). Soft residuals + Plume findings → Phase 8. `MESH-REG-*` stays ops + backlog. **Publish gate:** Plume Vite `wwwroot/dist` must be on GHCR (**DEPLOY-PLUME-001**).
 
 
 ### ID scheme
@@ -58,7 +58,7 @@ Historical aliases (`SEC-*`, `NEW-*`, `DES-*`, `KI-*`, `QA-*`, `DOC-*`, `OPS-*`)
 | [AUTH-ROT-001](#auth-rot-001--must_rotate_credentials-is-advisory-forever) | **P0** | Bes | Seed sets rotate flag; Authenticate never enforces / no password-change | **6** → **8** | **Fixed** — `UpdateUserBinding` + `bind_form`; host control gate (AUTH-ROT-002) |
 | [AUTH-ROLE-001](#auth-role-001--every-successful-login-mints-rolesadmin) | **P0** | Bes / AuthZ | Every mint hardcodes `roles=[admin]` | **6** | **Fixed** |
 | [AUTH-JWKS-001](#auth-jwks-001--jwks-resolver-uses-sync-over-async) | **P1** | Auth JWT | `GetAwaiter().GetResult()` in signing-key resolver | **6** | **Fixed** |
-| [GUEST-XCHG-001](#guest-xchg-001--guest-exchange-unauthenticated--no-rate-limit) | **P1** | Guests | Open `POST …/guest/exchange`; short codes brute-forceable | **6** | **Partial** — 10/min rate limit; lockout → GUEST-XCHG-002 |
+| [GUEST-XCHG-001](#guest-xchg-001--guest-exchange-unauthenticated--no-rate-limit) | **P1** | Guests | Open `POST …/guest/exchange`; short codes brute-forceable | **6** | **Fixed** — 10/min rate limit + GUEST-XCHG-002 lockout |
 | [MESH-CHN-001](#mesh-chn-001--work-port-mtls-trusts-ca-only--not-hostslug-pinned) | **P1** | Module.Channel | Work-port accepts any mesh-CA client cert; host dials skip server pin | **4** | **Fixed** |
 | [MESH-REG-001](#mesh-reg-001--slug-takeover-via-join-secret-auto) | High* | Registry | Join secret + Register window → slug takeover (auto) | Ops + backlog | **Open** |
 | MESH-REG-002 | Residual | Registry | Auto private-key-on-wire | Ops (`preshared`) | **Open** |
@@ -93,10 +93,11 @@ Historical aliases (`SEC-*`, `NEW-*`, `DES-*`, `KI-*`, `QA-*`, `DOC-*`, `OPS-*`)
 | **AUTH-CLAIM-001** | P1 | Claim JWT `bardie_bind_only` unread; admin claim could `/register` + search; access survived bind | **Fixed** — allow-list bindings+`/me`; no roles on claim JWT; register rejects pending; claim access dies after `CompleteInvite` |
 | **NECK-JOB-001** | P2 | TrackStatus disconnect without terminal event can orphan Neck jobs | **Fixed** — reconnect + capped give-up finalize; enables [NECK-SWP-001](known-issues.md#neck-swp-001--orphan-writer-sweep-runs-on-every-play-including-new-strunas) Fixed |
 | **GUEST-XCHG-002** | P2 | Guest failure lockout (5 failures → 15 min) | **Fixed** (Phase 8) |
+| **GUEST-XCHG-004** | P3 | Guest-code compare ordinal (not constant-time) | **Fixed** — `ListenTokenComparer.FixedTimeEquals` in `GuestJwtService.ExchangeAsync` |
 | **STREAM-TOK-001** | P2 | Listen-token compare not constant-time | **Fixed** — `CryptographicOperations.FixedTimeEquals` |
 | **AUTH-JWKS-002** | P2 | JWKS snapshot cold window at boot | **Fixed** — Register awaits JWKS; fail-closed rejects Register |
 | **META-QA-001** | P1 | Host E2E + Bes/Magpie module tests | **Fixed** — host invite claim→bind + guest/rotate; Bes/Magpie unit tests ([kithara#22](https://github.com/Bardie-radio/kithara/issues/22), bes#6, magpie#2) |
-| **META-DOC-001** | P3 | Plan/module docs lag code (incl. `/player` autoplay wording) | Phase 8 ([kithara#23](https://github.com/Bardie-radio/kithara/issues/23), [plume#12](https://github.com/Bardie-radio/plume/issues/12), bes#7, magpie#3) |
+| **META-DOC-001** | P3 | Plan/module docs lag code (incl. `/player` autoplay wording) | **Deferred** ([kithara#23](https://github.com/Bardie-radio/kithara/issues/23), [plume#12](https://github.com/Bardie-radio/plume/issues/12), bes#7, magpie#3) |
 | **META-OPS-002** | P2 | Final images: Ubuntu aspnet + full apt `ffmpeg`; Alpine + bare-minimum libav | **Fixed** ([kithara#33](https://github.com/Bardie-radio/kithara/issues/33), [magpie#6](https://github.com/Bardie-radio/magpie/issues/6), [plume#13](https://github.com/Bardie-radio/plume/issues/13), [bes#10](https://github.com/Bardie-radio/bes/issues/10)) — [known-issues](known-issues.md#meta-ops-002--final-images-bloated-ubuntu--full-ffmpeg) |
 | **META-OTEL-001** | P1 | Local Compose omits `OTEL_EXPORTER_OTLP_ENDPOINT` | **Fixed** ([kithara#34](https://github.com/Bardie-radio/kithara/issues/34)) — [known-issues](known-issues.md#meta-otel-001--local-compose-omits-otel_exporter_otlp_endpoint) |
 | **META-OTEL-002** | P1 | `Task.Run` drops Activity (Magpie track + Neck encode) | **Fixed** ([kithara#36](https://github.com/Bardie-radio/kithara/issues/36)) — [known-issues](known-issues.md#meta-otel-002--taskrun-drops-activity-context-magpie--neck) |
@@ -111,6 +112,18 @@ Historical aliases (`SEC-*`, `NEW-*`, `DES-*`, `KI-*`, `QA-*`, `DOC-*`, `OPS-*`)
 | **PLUME-SEC-002** | P2 | BFF state-changing routes: SameSite only (no antiforgery tokens) | **Fixed** — `X-CSRF-TOKEN` / form antiforgery on unsafe `/bff/*` |
 | **PLUME-SESS-001** | P2 | In-memory session token store (multi-replica / restart) | **Deferred** — MVP single-replica (documented in Plume security-notes) |
 | **GUEST-XCHG-003** | P3 | Dual guest-exchange routes (id vs slug) → separate rate-limit partitions | **Open** |
+
+### Pre-publish audit (26 Jul 2026)
+
+| ID | Sev | Summary | Status |
+|----|-----|---------|--------|
+| **DEPLOY-PLUME-001** | Blocker | GHCR Plume image missing Vite `wwwroot/dist` (MIME/nosniff empty assets) | **Open** until republish — fix in plume Dockerfile/csproj; [pre-publish-audit](pre-publish-audit.md) |
+| **AUTH-FWD-001** | P2 | Guest/invite rate limits use `RemoteIpAddress` without `UseForwardedHeaders` → one partition for all clients behind nginx | **Fixed** — `UseForwardedHeaders` + operator knobs `BARDIE_FORWARDED_HEADERS_*` (default ForwardLimit 2) — needs image publish |
+| **PLUME-FWD-001** | P2 | Session `Secure = IsHttps` ignores `X-Forwarded-Proto` from edge | **Fixed** — Plume `UseForwardedHeaders` + bundled nginx preserves upstream proto — needs image publish |
+| **META-CFG-001** | P3 | Kithara image `appsettings.json` embeds demo `BARDIE_JOIN_SECRETS` (Compose env overrides); alias **MESH-JOIN-001** | **Fixed** — demo secrets Development-only; Production requires env/Compose |
+| **META-LOG-001** | P3 | EF SQL + framework noise; OTP welcome hard to spot | **Fixed** in source (quiet Production logging + AUTH-INVITE banner) — needs image publish |
+| **META-DEPLOY-001** | P2 | Local MVP compose (`compose.plume.yml` / phase2/3) publishes Kithara `:5000` with demo join secrets — not the reference-stack pattern | **Open** (dev-only; org `profile/deploy` keeps gRPC internal) |
+| **GUEST-XCHG-004** | P3 | Guest-code string compare not constant-time | **Fixed** this pass (see soft residuals) |
 
 **Withdrawn — not a product bug:** former **PLUME-AUD-001** (public `/player` auto-start). **Decision (Jul 2026):** the listen/player page is expected to play on load. Track as **docs only** under [META-DOC-001](https://github.com/Bardie-radio/kithara/issues/23) and [plume#12](https://github.com/Bardie-radio/plume/issues/12): replace “audio off by default” with “`/player` autoplays; optional listen elsewhere is opt-in.”
 
@@ -244,12 +257,11 @@ Resolver calls `GetAllSigningKeysAsync(...).GetAwaiter().GetResult()` — deadlo
 
 **Severity:** P1  
 **Component:** `POST …/guest/exchange`  
-**Fix:** Phase **6** (already listed as open)
+**Fix:** Phase **6** (rate limit) + Phase **8** (lockout GUEST-XCHG-002) — **Fixed**
 
 Endpoint is open; short guest codes are brute-forceable without rate limiting.
 
-**Remediation:** Per-IP / per-Struna rate limits + lockout after N failures (and optional CAPTCHA later — out of MVP).
-
+**Remediation (shipped):** Per-IP / per-Struna rate limits + lockout after N failures (GUEST-XCHG-002). Constant-time guest-code compare → GUEST-XCHG-004. Optional CAPTCHA later — out of MVP.
 ---
 
 ## MESH-CHN-001 — Work-port mTLS trusts CA only — not host↔slug pinned
@@ -356,7 +368,10 @@ Join secret is the **bootstrap** credential before mTLS exists. Auto deliberatel
 - [x] Plume BFF: no JWT in browser; discovery without provider-id branching; CSP + antiforgery (PLUME-SEC-001/002)
 - [x] Plume `/player` may autoplay (product intent — docs under META-DOC-001)
 - [x] Alpine finals + bare `ffmpeg-libav*` for Kithara/Magpie (META-OPS-002)
-- [ ] Phase 8: host E2E + module tests + remaining doc sweep
+- [x] Phase 8: reference Compose + nginx ([org deploy](https://github.com/Bardie-radio/.github/tree/main/profile/deploy)); host E2E + module tests (META-QA-001)
+- [ ] Remaining doc sweep (META-DOC-001 deferred) · META-OPS-001 deferred · OTel continuous-play E2E deferred
+- [x] Forwarded-headers for rate limits / cookies (AUTH-FWD-001 / PLUME-FWD-001) — source Fixed; publish with release
+- [ ] Publish Plume with Vite `wwwroot/dist` (DEPLOY-PLUME-001)
 
 ---
 
@@ -388,6 +403,7 @@ Join secret is the **bootstrap** credential before mTLS exists. Auto deliberatel
 
 ## Related
 
+- [pre-publish-audit](pre-publish-audit.md) — GHCR release gate (deploy / deps / logging)
 - [implementation-plan](implementation-plan.md) — Phase 4–6 closed; soft residuals → Phase 8
 - [known-issues](known-issues.md) — non-security footguns (`NECK-*` / product polish)
 - [grpc-module-registry](../interfaces/grpc-module-registry.md) — dial rules + auto vs preshared
