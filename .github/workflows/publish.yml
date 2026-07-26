@@ -2,13 +2,15 @@ name: Publish image
 
 on:
   workflow_dispatch:
+  push:
+    branches: [dev]
 
 permissions:
   contents: read
   packages: write
 
 concurrency:
-  group: ghcr-publish-${{ github.repository }}
+  group: ghcr-publish-${{ github.repository }}-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -16,6 +18,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Resolve channel
+        id: channel
+        run: |
+          set -euo pipefail
+          case "${{ github.ref }}" in
+            refs/heads/dev)
+              echo "tag=dev" >> "$GITHUB_OUTPUT"
+              ;;
+            refs/heads/main)
+              echo "tag=latest" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Publish image only from dev (auto) or main (manual). Got ${{ github.ref }}." >&2
+              exit 1
+              ;;
+          esac
 
       - name: Read version
         id: version
@@ -47,7 +66,7 @@ jobs:
           images: ${{ steps.image.outputs.name }}
           tags: |
             type=raw,value=${{ steps.version.outputs.version }}
-            type=raw,value=latest
+            type=raw,value=${{ steps.channel.outputs.tag }}
           labels: |
             org.opencontainers.image.title=${{ github.event.repository.name }}
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
