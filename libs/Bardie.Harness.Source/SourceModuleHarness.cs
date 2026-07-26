@@ -1,6 +1,6 @@
-using Bardie.Module.Channel.Certificates;
-using Bardie.Module.Channel.Channel;
-using Bardie.Module.Channel.Participant;
+using Bardie.Logos.Channel.Certificates;
+using Bardie.Logos.Channel.Channel;
+using Bardie.Logos.Channel.Participant;
 using Bardie.Module.Source;
 using Bardie.Harness.Source.Catalog;
 using Bardie.Harness.Source.Models;

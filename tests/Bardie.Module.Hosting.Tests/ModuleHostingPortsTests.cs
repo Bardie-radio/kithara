@@ -1,7 +1,8 @@
+using Bardie.Logos.Hosting;
 using Microsoft.Extensions.Configuration;
 using Xunit;
 
-namespace Bardie.Module.Hosting.Tests;
+namespace Bardie.Logos.Hosting.Tests;
 
 public class ModuleHostingPortsTests
 {

@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.Json;
 using Bardie.Auth.V1;
 using Bardie.Module.Auth;
-using Bardie.Module.Channel.Manifest;
+using Bardie.Logos.Channel.Manifest;
 using Google.Protobuf;
 using Grpc.Core;
 using Microsoft.AspNetCore.Builder;

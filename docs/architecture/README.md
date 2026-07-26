@@ -18,6 +18,7 @@ Deep-dive architecture for **Kithara** — the Bardie core backend. For ecosyste
 | Section | Purpose |
 |---------|---------|
 | [Glossary](glossary.md) | Codenames + plain English |
+| [Logos](logos.md) | Extracted module-mesh Lib repos (`Bardie.Logos.*`) |
 | [Overview](overview/) | System context, internal structure, data flow |
 | [Domains](domains/) | Streams, source instances, auth, playback |
 | [Interfaces](interfaces/) | REST, gRPC, streaming, routing |

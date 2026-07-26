@@ -1,5 +1,5 @@
-using Bardie.Module.Channel.Certificates;
-using Bardie.Module.Channel.Channel;
+using Bardie.Logos.Channel.Certificates;
+using Bardie.Logos.Channel.Channel;
 using Bardie.Harness.Source;
 using Bardie.Harness.Source.Catalog;
 using Bardie.Harness.Source.Ports;

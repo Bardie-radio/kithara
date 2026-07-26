@@ -1,10 +1,11 @@
-using Bardie.Module.Channel.Participant;
+using Bardie.Logos.Channel.Participant;
+using Bardie.Logos.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Xunit;
 
-namespace Bardie.Module.Hosting.Tests;
+namespace Bardie.Logos.Hosting.Tests;
 
 public class BardieComposeParticipantEnvTests
 {

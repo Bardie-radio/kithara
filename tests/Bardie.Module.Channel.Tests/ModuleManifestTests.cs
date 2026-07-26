@@ -1,9 +1,9 @@
-using Bardie.Module.Channel.Manifest;
-using Bardie.Module.Channel.Participant;
+using Bardie.Logos.Channel.Manifest;
+using Bardie.Logos.Channel.Participant;
 using Bardie.Modules.V1;
 using Xunit;
 
-namespace Bardie.Module.Channel.Tests;
+namespace Bardie.Logos.Channel.Tests;
 
 public class ModuleManifestTests
 {

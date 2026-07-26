@@ -1,4 +1,4 @@
-using Bardie.Module.Channel.Hosting;
+using Bardie.Logos.Channel.Hosting;
 using Bardie.Modules.V1;
 using Grpc.Core;
 

@@ -44,6 +44,9 @@ Dual naming: **codename** (musical instruments theme) + **plain English**. When 
 | **Blob storage** | Library object store | Kithara-owned pluggable backend for Tune bytes (local volume, S3-compatible, WebDAV later) |
 | **Storage key** | Opaque blob id | Durable pointer on a Tune; drivers resolve to file/object — not a host path |
 | **DbProvider** | Persistence backend | Config switch: `sqlite` or `postgres` |
+| **Logos** | Module-mesh protocol | Portable libraries (`Bardie.Logos.*`) — contracts, mTLS channel, participant hosting. Repo: [`Bardie-radio/logos`](https://github.com/Bardie-radio/logos) |
+| **kithara-logos-auth** | Auth-kind SDK | `Bardie.Module.Auth` on Logos — JWT/JWKS helpers for auth adapters. Repo: [`Bardie-radio/kithara-logos-auth`](https://github.com/Bardie-radio/kithara-logos-auth) |
+| **kithara-logos-source** | Source-kind SDK | `Bardie.Module.Source` (+ `.Debug`) on Logos — source module base/FIFO helpers. Repo: [`Bardie-radio/kithara-logos-source`](https://github.com/Bardie-radio/kithara-logos-source) |
 
 Module and provider registration slugs are the lowercase codename (`magpie`, `bes`, `argus`, …). Image/Compose names and **GitHub repos** use the same slug (`Bardie-radio/kithara`, `Bardie-radio/plume`, … — **no** `bardie-` repo prefix). OTel `service.name` uses `bardie.kithara`, `bardie.plume`, `bardie.beak`, `bardie.cauda`, `bardie.source.<slug>`, `bardie.auth.<slug>`.
 
