@@ -118,9 +118,9 @@ Phase 7 needs Phase 2 + enough of 5–6 (now available). Phase 8 needs MVP apps 
 | META-OTEL-001  | Ops           | Local Compose omits `OTEL_EXPORTER_OTLP_ENDPOINT`                                     | **8** — **Fixed** ([kithara#34](https://github.com/Bardie-radio/kithara/issues/34)) |
 | META-OTEL-002  | Ops           | `Task.Run` drops Activity (Magpie track + Neck encode)                                | **8** — **Fixed** ([kithara#36](https://github.com/Bardie-radio/kithara/issues/36)) |
 | META-OTEL-003  | Ops           | Span attrs / Magpie stages / listen tags lag ADR 008                                  | **8** — **Fixed** (traces; OTLP logs deferred) ([kithara#35](https://github.com/Bardie-radio/kithara/issues/35)) |
-| META-OPS-001   | Ops           | Phase3 sine smoke vs Magpie Release image                                             | **8**                                                                   |
+| META-OPS-001   | Ops           | Phase3 sine smoke vs Magpie Release image                                             | **8 — deferred**                                                        |
 | META-OPS-002   | Ops           | Alpine final images + bare-minimum FFmpeg libs (Kithara/Magpie); Alpine for Plume/Bes | **Done** ([kithara#33](https://github.com/Bardie-radio/kithara/issues/33)) |
-| META-DOC-001   | Docs          | Doc vs code drift (Tune path, Bes ops, Magpie scope, phase status)                    | **8**                                                                   |
+| META-DOC-001   | Docs          | Doc vs code drift (Tune path, Bes ops, Magpie scope, phase status)                    | **8 — deferred**                                                        |
 | MESH-REG-*     | Mesh residual | Join-secret takeover / auto key-on-wire / ephemeral CA                                | Ops + backlog ([security-audit](security-audit.md))                     |
 
 
@@ -421,7 +421,7 @@ libs/                         # host-only
 | **AUTH-ROLE-001**  | **Done** — roles from binding                                                       |
 | **AUTH-JWKS-001**  | **Done** — async JWKS snapshot                                                      |
 | **AUTH-JWKS-002**  | **Done** — Register awaits JWKS; fail-closed rejects Register                       |
-| **GUEST-XCHG-001** | **Partial** — 10/min rate limit; failure lockout **Done** (GUEST-XCHG-002)         |
+| **GUEST-XCHG-001** | **Fixed** — 10/min rate limit + failure lockout (GUEST-XCHG-002); compare GUEST-XCHG-004 Fixed |
 | **AUTH-DISP-001**  | **Done** — unique `User.Username`; `/me` + invite `must_complete_binding` |
 
 
@@ -491,23 +491,24 @@ Do **not** renumber Plume work as “Kithara 7.1 / 7.2”. Satisfies this phase 
 
 ### Work
 
-1. Reference Compose: edge + `plume` + `kithara` + `magpie` + `bes` ([org deployment](https://github.com/Bardie-radio/.github/blob/main/profile/docs/architecture/05-deployment.md)).
-2. `BARDIE_JOIN_SECRETS` for all modules; audio/storage volumes as decided.
-3. Point every app at the **external** OTel collector when you have one (`OTEL_EXPORTER_OTLP_ENDPOINT` + matching Local `compose.otel*.yml` overlay). Unset = no export. [META-OTEL-001](known-issues.md#meta-otel-001--local-compose-omits-otel_exporter_otlp_endpoint) / [kithara#34](https://github.com/Bardie-radio/kithara/issues/34).
-4. Smoke script / checklist: register → login → create → play → listen → skip — **and** a single play trace spanning Plume → Kithara → Magpie. Activity across `Task.Run` (**META-OTEL-002 Fixed**); attrs/stages (**META-OTEL-003 Fixed**, traces only).
+1. **Done** — Reference Compose: edge + `plume` + `kithara` + `magpie` + `bes` ([org deploy](https://github.com/Bardie-radio/.github/tree/main/profile/deploy) · [05-deployment](https://github.com/Bardie-radio/.github/blob/main/profile/docs/architecture/05-deployment.md)).
+2. **Done** — `BARDIE_JOIN_SECRETS` for all modules; audio/storage/Postgres volumes in the reference stack.
+3. Point every app at the **external** OTel collector when you have one (`OTEL_EXPORTER_OTLP_ENDPOINT` in deploy `.env` + Local `compose.otel*.yml` overlay). Unset = no export. [META-OTEL-001](known-issues.md#meta-otel-001--local-compose-omits-otel_exporter_otlp_endpoint) / [kithara#34](https://github.com/Bardie-radio/kithara/issues/34).
+4. Smoke script / checklist: register → login → create → play → listen → skip — **and** a single play trace spanning Plume → Kithara → Magpie. Activity across `Task.Run` (**META-OTEL-002 Fixed**); attrs/stages (**META-OTEL-003 Fixed**, traces only). **OTel E2E continuous-play verify: deferred** (collector wiring documented; live cross-service proof not a Phase 8 gate).
 5. **META-QA-001 Fixed:** Host `WebApplicationFactory` (discovery→`/me`, invite claim→bind, guest exchange, MustRotate gate) + Bes Authenticate/`UpdateUserBinding` + Magpie registry/FIFO pacing/cancel. create→play→FIFO still needs FFmpeg + source module in Compose smoke.
-6. **META-OPS-001:** Align Local phase3 sine smoke with Magpie image config (Debug sine helper vs Release YouTube default) so the documented smoke path is honest.
+6. **META-OPS-001 — deferred:** Align Local phase3 sine smoke with Magpie image config (Debug sine helper vs Release YouTube default). Owner: Local / Magpie docs when next touching phase3 smoke.
 7. **META-OPS-002:** **Done** — Alpine **3.22** finals (`aspnet:10.0-alpine3.22`) for the MVP quartet; Kithara/Magpie install Alpine `ffmpeg-libav*` 6.1 only (no CLI metapackage; pin avoids 3.23+ ffmpeg 8 soname break); `BARDIE_FFMPEG_ROOT`/`MAGPIE_FFMPEG_ROOT=/usr/lib`. See [known-issues](known-issues.md#meta-ops-002--final-images-bloated-ubuntu--full-ffmpeg) / [kithara#33](https://github.com/Bardie-radio/kithara/issues/33).
-8. **META-DOC-001:** Sweep doc drift (library Tune path, Bes operations JWT wording, Magpie Register wording, MVP phase status vs code).
+8. **META-DOC-001 — deferred:** Sweep doc drift (library Tune path, Bes operations JWT wording, Magpie Register wording, MVP phase status vs code). Owner: next doc pass.
 9. **NECK-JOB-001 / NECK-SWP-001 / NECK-PCM-001 Fixed:** TrackStatus reconnect + capped give-up; no orphan sweep on play; shared `CanonicalPcm` ([kithara#26](https://github.com/Bardie-radio/kithara/issues/26), [kithara#25](https://github.com/Bardie-radio/kithara/issues/25)).
-
+10. **Pre-publish (26 Jul 2026):** [pre-publish-audit](pre-publish-audit.md) — **DEPLOY-PLUME-001** (Plume Vite dist on GHCR) is the publish blocker; **META-LOG-001** / **AUTH-FWD-001** / **PLUME-FWD-001** / **META-CFG-001 Fixed** in source (quiet logs + AUTH-INVITE banner, forwarded headers, no demo join secrets in published appsettings).
 
 
 ### Exit criteria
 
-- Documented `docker compose up` path for the MVP quartet.
-- Collector shows a continuous play path across all four `bardie.*` service names (META-OTEL-001/002 closed or explicitly deferred).
-- META-QA-001 / META-OPS-001 / META-OPS-002 / META-DOC-001 / META-OTEL-* closed or explicitly deferred with owners.
+- [x] Documented `docker compose up` path for the MVP quartet ([org deploy](https://github.com/Bardie-radio/.github/tree/main/profile/deploy)).
+- [ ] Collector shows a continuous play path across all four `bardie.*` service names — **deferred** (endpoint + overlays documented; live E2E not required to close Phase 8 reference Compose).
+- META-QA-001 / META-OPS-002 / META-OTEL-001/002/003 **Fixed**; META-OPS-001 / META-DOC-001 / OTel E2E **deferred** with owners above.
+- [ ] GHCR images include Plume Vite `wwwroot/dist` + logging quieting ([pre-publish-audit](pre-publish-audit.md)).
 
 ---
 
@@ -541,7 +542,7 @@ Aligned with [v0.1-scope](v0.1-scope.md):
 - [x] Bes login via unified auth contract; Kithara verifies JWTs  
 - [x] ICY `/stream/{slug}` with metadata; protected listen token  
 - [x] Guest code → ephemeral guest user + JWT; guests die with Struna  
-- [ ] Plume optional; Compose + join secrets; OTel live from Phase 1, verified E2E in Phase 8
+- [x] Plume optional; Compose + join secrets ([org deploy](https://github.com/Bardie-radio/.github/tree/main/profile/deploy)); OTel live from Phase 1 — **E2E continuous-play verify deferred** (Phase 8)
 
 Out of scope stays out: Argus/Hecate, Beak/Cauda, Catbird/Starling, Icecast/HLS primary, multi-instance Kithara, `PrepareTrack`.
 
@@ -585,4 +586,4 @@ Design-review open questions are **closed**. Phase 0 can proceed from the locked
 - [glossary](../glossary.md) · [grpc-module-registry](../interfaces/grpc-module-registry.md) · [grpc-source-module](../interfaces/grpc-source-module.md) · [grpc-blob-storage](../interfaces/grpc-blob-storage.md) · [grpc-library](../interfaces/grpc-library.md) · [auth](../interfaces/auth.md)
 - Org: [05-deployment](https://github.com/Bardie-radio/.github/blob/main/profile/docs/architecture/05-deployment.md)
 
-**Read next:** [security-audit.md](security-audit.md) · Phase 7 Plume · Phase 8 Compose + verify.
+**Read next:** [security-audit.md](security-audit.md) · [pre-publish-audit.md](pre-publish-audit.md) · Phase 7 Plume · Phase 8 Compose + verify.

@@ -80,8 +80,23 @@ public sealed class InviteBootstrapHostedService : BackgroundService
 
     private void LogWelcome(InviteBootstrapResult result)
     {
+        // Banner stays Warning so it survives Production filters and stands out in compose logs.
+        // Intentional OTP plaintext — claim then bind_form; never log join secrets.
         _logger.LogWarning(
-            "BOOTSTRAP ADMIN (AUTH-INVITE): username={Username} id={UserId}. Registration OTP (log only — claim then bind_form): {Otp}",
+            """
+
+            ======================================================================
+              KITHARA AUTH-INVITE — BOOTSTRAP ADMIN
+            ----------------------------------------------------------------------
+              username:          {Username}
+              user id:           {UserId}
+              Registration OTP:  {Otp}
+            ----------------------------------------------------------------------
+              Next: open any user-aware client and claim user → enter username and
+                                 OTP → complete bind to any auth provider.
+              OTP is log-only (never on public HTTP). Rotate ops access if leaked.
+            ======================================================================
+            """,
             result.Username,
             result.UserId,
             result.RegistrationPassword);

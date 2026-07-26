@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Kithara.Features.Streaming;
 using Kithara.Infrastructure.Persistence;
 using Kithara.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -38,10 +39,11 @@ public sealed class GuestJwtService
         await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
         var struna = await db.Strunas.FirstOrDefaultAsync(s => s.Id == strunaId, cancellationToken)
             .ConfigureAwait(false);
+        // GUEST-XCHG-004: same constant-time compare as listen tokens (STREAM-TOK-001).
         if (struna is null
             || struna.ControlAccess != ControlAccess.Protected
             || string.IsNullOrWhiteSpace(struna.GuestCode)
-            || !string.Equals(struna.GuestCode, guestCode.Trim(), StringComparison.Ordinal))
+            || !ListenTokenComparer.FixedTimeEquals(guestCode.Trim(), struna.GuestCode))
         {
             return null;
         }
