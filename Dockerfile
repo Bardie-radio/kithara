@@ -51,22 +51,24 @@ RUN apk add --no-cache \
       ffmpeg-libavformat \
       ffmpeg-libavutil \
       ffmpeg-libswresample \
-    && mkdir -p /data/mtls /data/db /data/blobs /audio/strunas \
+    && mkdir -p /data/mtls /data/blobs /audio/strunas \
     && chown -R "$APP_UID":"$APP_UID" /data /app /audio
 
 COPY --from=build /app/publish .
 RUN chown -R "$APP_UID":"$APP_UID" /app
 
 USER $APP_UID
-ENV ASPNETCORE_URLS= \
+# Paths default here — Compose only mounts volumes; override env only when relocating.
+# DB: Production requires POSTGRES_HOST (+ USER/PASSWORD/DB); SQLite is Development-only.
+ENV ASPNETCORE_ENVIRONMENT=Production \
+    ASPNETCORE_URLS= \
     BARDIE_GRPC_TLS_DATA_PATH=/data/mtls \
     BARDIE_STRUNA_FIFO_PATH=/audio \
     BARDIE_STORAGE_PATH=/data/blobs \
-    BARDIE_FFMPEG_ROOT=/usr/lib \
-    DbProvider=sqlite \
-    DbConnectionString="Data Source=/data/db/kithara.db"
+    BARDIE_FFMPEG_ROOT=/usr/lib
 
-EXPOSE 8080 5000
+# HTTP only in EXPOSE — module gRPC (:5000) is mesh-internal; do not publish to the host.
+EXPOSE 8080
 # Busybox wget is on Alpine base — avoid curl bloat.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=25s --retries=3 \
   CMD wget -q -O /dev/null http://127.0.0.1:8080/health/live || exit 1

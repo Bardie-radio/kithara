@@ -10,9 +10,11 @@ using Kithara.Features.Modules;
 using Kithara.Features.Search;
 using Kithara.Features.Streams;
 using Kithara.Features.Streaming;
+using Kithara.Infrastructure.Hosting;
 using Kithara.Infrastructure.Neck;
 using Kithara.Infrastructure.Observability;
 using Kithara.Infrastructure.Persistence;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
@@ -41,6 +43,14 @@ builder.Services.AddHostedService<InviteBootstrapHostedService>();
 builder.Services.AddSingleton<GuestExchangeLockout>();
 builder.Services.AddSingleton<InviteClaimLockout>();
 builder.Services.AddSingleton<ClaimInviteJwtService>();
+
+// AUTH-FWD-001: honor X-Forwarded-* only when BARDIE_FORWARDED_HEADERS_* is set (Compose edge).
+// Unset = no proxy (direct clients / local).
+if (ForwardedHeadersConfiguration.IsEnabled(builder.Configuration))
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+        ForwardedHeadersConfiguration.Apply(options, builder.Configuration));
+}
 
 // GUEST-XCHG-001: guest-code exchange is unauthenticated — bound by IP + Struna id.
 builder.Services.AddRateLimiter(options =>
@@ -93,6 +103,21 @@ _ = app.Services.GetRequiredService<GuestJwtSigningKeyStore>().GetSigningKey();
 
 await app.MigrateKitharaDatabaseAsync().ConfigureAwait(false);
 
+app.Logger.LogInformation(
+    """
+
+    ======================================================================
+      KITHARA ready
+    ----------------------------------------------------------------------
+      HTTP :8080  ·  module gRPC :5000 (internal)
+      Empty DB → AUTH-INVITE OTP appears below as a WARNING banner.
+    ======================================================================
+    """);
+
+if (ForwardedHeadersConfiguration.IsEnabled(app.Configuration))
+{
+    app.UseForwardedHeaders();
+}
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
