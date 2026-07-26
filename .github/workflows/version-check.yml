@@ -1,0 +1,10 @@
+name: Version check
+
+on:
+  pull_request:
+
+jobs:
+  check:
+    uses: Bardie-radio/.github/.github/workflows/reusable-version-check.yml@main
+    permissions:
+      contents: read
